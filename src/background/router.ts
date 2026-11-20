@@ -3,6 +3,7 @@ import {
   addTabToGroup,
   createGroup,
   deleteGroup,
+  getAppConfig,
   getTabById,
   listGroups,
   listTabsByGroup,
@@ -12,6 +13,7 @@ import {
   renameGroup,
   reorderGroup,
   reorderTab,
+  setAppConfig,
   setGroupCollapsed,
   setTabPinned,
   updateGroupAppearance,
@@ -147,6 +149,13 @@ export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promis
       await enqueueTabsUpsert(db, await listTabsByGroup(db, message.newGroupId));
       kickSync(db);
       return { type: "TAB_MOVED" };
+    }
+    case "GET_CONFIG":
+      return { type: "CONFIG", config: await getAppConfig(db) };
+    case "SET_QUICK_ACCESS": {
+      const config = await getAppConfig(db);
+      await setAppConfig(db, { ...config, quickAccess: message.quickAccess });
+      return { type: "QUICK_ACCESS_SET" };
     }
   }
 }

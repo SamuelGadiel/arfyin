@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import type { Group, NewSavedTabInput, SavedTab } from "./types";
+import { defaultAppConfig, type AppConfig, type Group, type NewSavedTabInput, type SavedTab } from "./types";
 
 /**
  * IndexedDB não aceita `null` como chave de índice válida. Internamente guardamos
@@ -55,7 +55,13 @@ interface ArfyinDbSchema extends DBSchema {
     key: string;
     value: SyncStatus;
   };
+  config: {
+    key: string;
+    value: AppConfig;
+  };
 }
+
+const APP_CONFIG_KEY = "appConfig";
 
 export type ArfyinDb = IDBPDatabase<ArfyinDbSchema>;
 
@@ -65,7 +71,7 @@ export type ArfyinDb = IDBPDatabase<ArfyinDbSchema>;
  * rodarem (ver tests/setup.ts), então nenhum mock manual é necessário aqui.
  */
 export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
-  return openDB<ArfyinDbSchema>(name, 2, {
+  return openDB<ArfyinDbSchema>(name, 3, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         db.createObjectStore("groups", { keyPath: "id" });
@@ -76,8 +82,20 @@ export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
         db.createObjectStore("sync_queue", { keyPath: "id" });
         db.createObjectStore("meta", { keyPath: undefined });
       }
+      if (oldVersion < 3) {
+        db.createObjectStore("config", { keyPath: undefined });
+      }
     },
   });
+}
+
+export async function getAppConfig(db: ArfyinDb): Promise<AppConfig> {
+  const config = await db.get("config", APP_CONFIG_KEY);
+  return config ?? defaultAppConfig();
+}
+
+export async function setAppConfig(db: ArfyinDb, config: AppConfig): Promise<void> {
+  await db.put("config", config, APP_CONFIG_KEY);
 }
 
 let syncSeq = 0;

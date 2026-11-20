@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { store } from "../lib/store.svelte";
   import GroupItem from "./GroupItem.svelte";
   import UngroupedSection from "./UngroupedSection.svelte";
@@ -14,10 +13,6 @@
       ? [...store.groups].sort((a, b) => a.name.localeCompare(b.name))
       : [...store.groups].sort((a, b) => a.order - b.order),
   );
-
-  onMount(() => {
-    store.loadAll();
-  });
 
   async function createGroup() {
     const name = prompt("Nome do novo grupo:");

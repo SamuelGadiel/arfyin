@@ -1,11 +1,12 @@
 import { send } from "./client";
-import type { Group, SavedTab } from "@/shared/types";
+import { defaultAppConfig, type AppConfig, type Group, type QuickAccessItem, type SavedTab } from "@/shared/types";
 
 class ArfyinStore {
   groups: Group[] = $state([]);
   tabsByGroup: Record<string, SavedTab[]> = $state({});
   ungrouped: SavedTab[] = $state([]);
   loaded = $state(false);
+  config: AppConfig = $state(defaultAppConfig());
 
   async loadAll(): Promise<void> {
     const groupsRes = await send<"GROUPS">({ type: "LIST_GROUPS" });
@@ -22,7 +23,16 @@ class ArfyinStore {
     this.groups = groups;
     this.tabsByGroup = tabsByGroup;
     this.ungrouped = ungroupedRes.type === "TABS" ? ungroupedRes.tabs : [];
+
+    const configRes = await send<"CONFIG">({ type: "GET_CONFIG" });
+    if (configRes.type === "CONFIG") this.config = configRes.config;
+
     this.loaded = true;
+  }
+
+  async setQuickAccess(quickAccess: QuickAccessItem[]): Promise<void> {
+    await send({ type: "SET_QUICK_ACCESS", quickAccess });
+    await this.loadAll();
   }
 
   async createGroup(name: string): Promise<void> {

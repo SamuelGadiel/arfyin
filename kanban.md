@@ -27,15 +27,10 @@
 | ARF-066 | THEME | Fonte imagem(ns) local(is) do usuário, com rotação | F5 |
 | ARF-067 | THEME | Configuração de frequência de troca / travar em imagem fixa | F6 |
 | ARF-068 | THEME | Customização do relógio (24h/AMPM, fuso, formato data, fonte, tamanho, cor) | F7 |
-| ARF-070 | ZEN | Atalho de barra de espaço → modo zen (toggle, por aba) | G1, G2, G3, G4 |
 | ARF-090 | LAYOUT | Layout "scroll reveal" (relógio → scroll único → gestão de abas) | I1 |
 | ARF-091 | LAYOUT | Layout "coexistente" (relógio + abas no mesmo espaço) | I2 |
 | ARF-092 | LAYOUT | Layout "sem relógio" | I3 |
 | ARF-093 | LAYOUT | Configuração de qual layout usar | I1, I2, I3 |
-| ARF-100 | QUICK | Configuração de até 9 itens de acesso rápido | J1 |
-| ARF-101 | QUICK | Atalhos numéricos 1-9 (com foco) | J3 |
-| ARF-102 | QUICK | Atalho modificador+número (sem foco) e encadeamento múltiplo | J3 |
-| ARF-103 | QUICK | Atalho "abrir todos" (tecla 0) | J3 |
 | ARF-110 | QA | Playwright e2e: extensão carregada no Chrome real (fluxos críticos) | — |
 | ARF-120 | RELEASE | Empacotamento + checklist de publicação na Chrome Web Store | — |
 
@@ -63,3 +58,5 @@
 | ARF-022/023/024/025/026/027 | CORE | UI completa de grupos/abas: render, colapsar, drag-and-drop (reorder+move), criar grupo, ordenação manual/alfabética | [sdd/ARF-022-027-core-ui.md](sdd/ARF-022-027-core-ui.md) |
 | ARF-080/081/082/083/084 | INTERACT | Clique com/sem foco, abrir grupo inteiro, cor/ícone de grupo, pin de aba | [sdd/ARF-022-027-core-ui.md](sdd/ARF-022-027-core-ui.md) |
 | ARF-030/031/032/033/034 | LIVE | Abas/janelas abertas em tempo real (Port, sem polling), drag para grupo com/sem fechar original | [sdd/ARF-030-034-live-tabs.md](sdd/ARF-030-034-live-tabs.md) |
+| ARF-070 | ZEN | Barra de espaço → modo zen, por aba | [sdd/ARF-070-zen-mode.md](sdd/ARF-070-zen-mode.md) |
+| ARF-100/101/102/103 | QUICK | Acesso rápido 1-9, modificador sem foco, tecla 0 abre todos | [sdd/ARF-100-103-quick-access.md](sdd/ARF-100-103-quick-access.md) |

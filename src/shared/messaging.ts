@@ -1,4 +1,4 @@
-import type { Group, NewSavedTabInput, SavedTab } from "./types";
+import type { AppConfig, Group, NewSavedTabInput, QuickAccessItem, SavedTab } from "./types";
 import type { SyncStatus } from "./storage";
 
 export interface PingMessage {
@@ -103,6 +103,15 @@ export interface MoveTabMessage {
   newIndex?: number;
 }
 
+export interface GetConfigMessage {
+  type: "GET_CONFIG";
+}
+
+export interface SetQuickAccessMessage {
+  type: "SET_QUICK_ACCESS";
+  quickAccess: QuickAccessItem[];
+}
+
 export type ArfyinMessage =
   | PingMessage
   | ListGroupsMessage
@@ -119,7 +128,9 @@ export type ArfyinMessage =
   | ReorderGroupMessage
   | SetTabPinnedMessage
   | ReorderTabMessage
-  | MoveTabMessage;
+  | MoveTabMessage
+  | GetConfigMessage
+  | SetQuickAccessMessage;
 
 export type ArfyinResponse =
   | PongMessage
@@ -136,7 +147,9 @@ export type ArfyinResponse =
   | { type: "GROUP_REORDERED" }
   | { type: "TAB_PINNED_SET" }
   | { type: "TAB_REORDERED" }
-  | { type: "TAB_MOVED" };
+  | { type: "TAB_MOVED" }
+  | { type: "CONFIG"; config: AppConfig }
+  | { type: "QUICK_ACCESS_SET" };
 
 function hasType(message: unknown): message is { type: string } {
   return typeof message === "object" && message !== null && "type" in message;
@@ -161,5 +174,7 @@ export function isArfyinMessage(message: unknown): message is ArfyinMessage {
     "SET_TAB_PINNED",
     "REORDER_TAB",
     "MOVE_TAB",
+    "GET_CONFIG",
+    "SET_QUICK_ACCESS",
   ].includes(message.type);
 }

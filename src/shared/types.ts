@@ -36,3 +36,17 @@ export interface LiveWindow {
   windowId: number;
   tabs: LiveTab[];
 }
+
+export interface QuickAccessItem {
+  slot: number;
+  url: string;
+  title: string;
+}
+
+export interface AppConfig {
+  quickAccess: QuickAccessItem[];
+}
+
+export function defaultAppConfig(): AppConfig {
+  return { quickAccess: [] };
+}
