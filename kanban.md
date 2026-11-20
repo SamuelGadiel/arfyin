@@ -9,7 +9,6 @@
 | ID | Epic | Card | Ref. |
 |---|---|---|---|
 | ARF-011 | SYNC | Auth via Google OAuth (`chrome.identity.launchWebAuthFlow`) + fluxo de "conectar" em instalação nova | A1, ADR-006 |
-| ARF-012 | SYNC | Fila de sync em background (debounce, retry, offline-safe) entre IndexedDB local e Supabase — resiliente a Supabase indisponível/pausado, extensão 100% funcional só com dados locais nesse caso | A1, A3, E4, ADR-007, ADR-010 |
 | ARF-013 | SYNC | Exportar dump de dados (JSON) | A2 |
 | ARF-014 | SYNC | Exportar arquivo de configuração (JSON) | A2 |
 | ARF-015 | SYNC | Importar dump de dados — merge por duplicação (nunca decide o que descartar) | A2, ADR-007 |
@@ -76,3 +75,4 @@
 | ARF-001 | SETUP | Scaffolding do projeto: MV3 + TS + Vite + Svelte + estrutura de pastas + pipeline de testes | [sdd/ARF-001-project-scaffolding.md](sdd/ARF-001-project-scaffolding.md) |
 | ARF-020/021 | CORE | Modelo de dados (Group + SavedTab) + camada de storage local (IndexedDB) | [sdd/ARF-020-021-data-model-and-storage.md](sdd/ARF-020-021-data-model-and-storage.md) |
 | ARF-010 | SYNC | Schema Supabase (tabelas `groups`, `tabs`) + RLS por usuário + cliente `supabase-js` — migração aplicada e validada em produção via Management API | [sdd/ARF-010-supabase-schema.md](sdd/ARF-010-supabase-schema.md) |
+| ARF-012 | SYNC | Fila de sync local↔Supabase, resiliente (para no 1º erro, preserva fila, status idle/syncing/unreachable), drenagem no alarme periódico e após cada mutação | [sdd/ARF-012-sync-queue.md](sdd/ARF-012-sync-queue.md) |

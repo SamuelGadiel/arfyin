@@ -4,6 +4,7 @@ import {
   pullTabsByGroup,
   pushGroup,
   pushTab,
+  type DeleteBuilder,
   type RemoteDb,
   type SelectBuilder,
   type SelectResponse,
@@ -60,6 +61,17 @@ function fakeDb(overrides: Partial<Record<"groups" | "tabs", unknown[]>> = {}): 
               ) as Record<string, unknown>[];
               const response: SelectResponse = { data, error: null };
               return Promise.resolve(response).then(onFulfilled, onRejected);
+            },
+          };
+          return builder;
+        },
+        delete() {
+          const builder: DeleteBuilder = {
+            eq() {
+              return builder;
+            },
+            then(onFulfilled, onRejected) {
+              return Promise.resolve({ error: null }).then(onFulfilled, onRejected);
             },
           };
           return builder;

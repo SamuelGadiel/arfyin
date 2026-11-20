@@ -61,3 +61,12 @@
 - `get_advisors(performance)` acusou: FK `tabs.group_id` sem índice dedicado cobrindo (o índice composto existente não cobre buscas só por `group_id`) e as 8 policies de RLS reavaliando `auth.uid()` por linha em vez de uma vez por query. Corrigido: índice `tabs_group_id_idx` + todas as policies reescritas com `(select auth.uid())` (recomendação oficial da documentação do Supabase). Terceiro achado ("índices nunca usados") é ruído esperado — banco ainda vazio, sem tráfego real — não exige ação.
 - Todas as correções aplicadas via `apply_migration` (não `execute_sql`) para ficarem no histórico formal do Supabase (`list_migrations` confirma). Espelhadas localmente em `supabase/migrations/0002_security_performance_fixes.sql`.
 - Formalizada em ADR-012 a prática de sempre rodar `get_advisors` depois de qualquer DDL.
+
+## 2026-11-20 (continuação) — ARF-012 e início de execução contínua (sem check-in por card)
+
+> A partir daqui, a pedido do usuário, deixo de parar para validar cada card individualmente — registro continua completo, mas sem pausar o fluxo.
+
+- `ARF-012` implementado: IDB bump v1→v2 com `sync_queue`/`meta` stores (upgrade incremental, não quebra o banco já existente no Chrome real do usuário); `src/shared/sync.ts` (enqueue/drain, para no 1º erro preservando o resto da fila); `remote.ts` ganhou `deleteRemoteGroup`/`deleteRemoteTab`; `router.ts` enfileira+dispara sync (fire-and-forget, nunca bloqueia a resposta) em toda mutação; `chrome.alarms` a cada 15min como rede de segurança. `getCurrentUserId`/`getRemoteDb` já ligados de verdade ao `supabase-js` (sem sessão ainda — ARF-011 — `drainQueue` simplesmente não roda, fila fica intacta).
+- Vitest configurado para **nunca** carregar o `.env` real durante os testes (sobrescrito para vazio em `vite.config.ts`) — isolamento de rede garantido mesmo com credenciais reais no projeto.
+- 28 testes passando. Build confirma a arquitetura: bundle do background subiu pra ~59KB gzip (entrou o `supabase-js`), bundle da new-tab continua em ~17KB gzip, inalterado — exatamente a garantia do ADR-002/003 (peso de biblioteca fica isolado no processo central).
+- `ARF-012` → Done.

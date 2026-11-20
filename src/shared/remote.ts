@@ -14,10 +14,19 @@ export interface SelectBuilder extends PromiseLike<SelectResponse> {
   eq(column: string, value: unknown): SelectBuilder;
 }
 
+export interface DeleteResponse {
+  error: { message: string } | null;
+}
+
+export interface DeleteBuilder extends PromiseLike<DeleteResponse> {
+  eq(column: string, value: unknown): DeleteBuilder;
+}
+
 export interface RemoteDb {
   from(table: "groups" | "tabs"): {
     upsert(row: object): PromiseLike<{ error: { message: string } | null }>;
     select(columns: string): SelectBuilder;
+    delete(): DeleteBuilder;
   };
 }
 
@@ -116,6 +125,16 @@ export async function pullGroups(db: RemoteDb, userId: string): Promise<Group[]>
 export async function pushTab(db: RemoteDb, userId: string, tab: SavedTab): Promise<void> {
   const { error } = await db.from("tabs").upsert(tabToRow(userId, tab));
   if (error) throw new Error(`Falha ao sincronizar aba: ${error.message}`);
+}
+
+export async function deleteRemoteGroup(db: RemoteDb, userId: string, id: string): Promise<void> {
+  const { error } = await db.from("groups").delete().eq("id", id).eq("user_id", userId);
+  if (error) throw new Error(`Falha ao deletar grupo: ${error.message}`);
+}
+
+export async function deleteRemoteTab(db: RemoteDb, userId: string, id: string): Promise<void> {
+  const { error } = await db.from("tabs").delete().eq("id", id).eq("user_id", userId);
+  if (error) throw new Error(`Falha ao deletar aba: ${error.message}`);
 }
 
 export async function pullTabsByGroup(

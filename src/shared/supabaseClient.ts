@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { RemoteDb } from "./remote";
 
 let cachedClient: SupabaseClient | null = null;
 
@@ -16,4 +17,18 @@ export function getSupabaseClient(): SupabaseClient {
 
   cachedClient = createClient(url, publishableKey);
   return cachedClient;
+}
+
+/**
+ * O client real do supabase-js satisfaz `RemoteDb` estruturalmente (tem `.from()`
+ * com `.upsert()`/`.select().eq()`/`.delete().eq()` thenable) — este cast e so
+ * para estreitar o tipo na borda de uso, nao muda o comportamento em runtime.
+ */
+export function getRemoteDb(): RemoteDb {
+  return getSupabaseClient() as unknown as RemoteDb;
+}
+
+export async function getCurrentUserId(): Promise<string | null> {
+  const { data } = await getSupabaseClient().auth.getSession();
+  return data.session?.user.id ?? null;
 }

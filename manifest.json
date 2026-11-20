@@ -3,7 +3,7 @@
   "name": "arfyin",
   "version": "0.1.0",
   "description": "Gerenciador de abas e new-tab pessoal do Samuel.",
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "alarms"],
   "background": {
     "service_worker": "src/background/index.ts",
     "type": "module"

@@ -18,6 +18,25 @@ function fromStoredTab(record: StoredTab): SavedTab {
   return { ...record, groupId: record.groupId === UNGROUPED ? null : record.groupId };
 }
 
+export interface SyncOp {
+  id: string;
+  table: "groups" | "tabs";
+  op: "upsert" | "delete";
+  entityId: string;
+  payload?: Group | SavedTab;
+  createdAt: number;
+}
+
+export type SyncState = "idle" | "syncing" | "unreachable";
+
+export interface SyncStatus {
+  state: SyncState;
+  lastError: string | null;
+  lastSuccessAt: number | null;
+}
+
+const SYNC_STATUS_KEY = "syncStatus";
+
 interface ArfyinDbSchema extends DBSchema {
   groups: {
     key: string;
@@ -27,6 +46,14 @@ interface ArfyinDbSchema extends DBSchema {
     key: string;
     value: StoredTab;
     indexes: { groupId: string };
+  };
+  sync_queue: {
+    key: string;
+    value: SyncOp;
+  };
+  meta: {
+    key: string;
+    value: SyncStatus;
   };
 }
 
@@ -38,13 +65,45 @@ export type ArfyinDb = IDBPDatabase<ArfyinDbSchema>;
  * rodarem (ver tests/setup.ts), então nenhum mock manual é necessário aqui.
  */
 export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
-  return openDB<ArfyinDbSchema>(name, 1, {
-    upgrade(db) {
-      db.createObjectStore("groups", { keyPath: "id" });
-      const tabs = db.createObjectStore("tabs", { keyPath: "id" });
-      tabs.createIndex("groupId", "groupId");
+  return openDB<ArfyinDbSchema>(name, 2, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        db.createObjectStore("groups", { keyPath: "id" });
+        const tabs = db.createObjectStore("tabs", { keyPath: "id" });
+        tabs.createIndex("groupId", "groupId");
+      }
+      if (oldVersion < 2) {
+        db.createObjectStore("sync_queue", { keyPath: "id" });
+        db.createObjectStore("meta", { keyPath: undefined });
+      }
     },
   });
+}
+
+export async function enqueueSyncOp(
+  db: ArfyinDb,
+  op: Omit<SyncOp, "id" | "createdAt">,
+): Promise<void> {
+  const fullOp: SyncOp = { ...op, id: crypto.randomUUID(), createdAt: now() };
+  await db.put("sync_queue", fullOp);
+}
+
+export async function listSyncQueue(db: ArfyinDb): Promise<SyncOp[]> {
+  const ops = await db.getAll("sync_queue");
+  return ops.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function removeSyncOp(db: ArfyinDb, id: string): Promise<void> {
+  await db.delete("sync_queue", id);
+}
+
+export async function getSyncStatus(db: ArfyinDb): Promise<SyncStatus> {
+  const status = await db.get("meta", SYNC_STATUS_KEY);
+  return status ?? { state: "idle", lastError: null, lastSuccessAt: null };
+}
+
+export async function setSyncStatus(db: ArfyinDb, status: SyncStatus): Promise<void> {
+  await db.put("meta", status, SYNC_STATUS_KEY);
 }
 
 function now(): number {
