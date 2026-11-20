@@ -120,6 +120,11 @@ export interface SetQuickAccessMessage {
   quickAccess: QuickAccessItem[];
 }
 
+export interface UpdateConfigMessage {
+  type: "UPDATE_CONFIG";
+  patch: Partial<AppConfig>;
+}
+
 export interface ExportDataMessage {
   type: "EXPORT_DATA";
 }
@@ -157,6 +162,7 @@ export type ArfyinMessage =
   | MoveTabMessage
   | GetConfigMessage
   | SetQuickAccessMessage
+  | UpdateConfigMessage
   | ExportDataMessage
   | ImportDataMessage
   | ExportConfigMessage
@@ -180,6 +186,7 @@ export type ArfyinResponse =
   | { type: "TAB_MOVED" }
   | { type: "CONFIG"; config: AppConfig }
   | { type: "QUICK_ACCESS_SET" }
+  | { type: "CONFIG_UPDATED" }
   | { type: "DATA_EXPORTED"; data: DataExport }
   | { type: "DATA_IMPORTED" }
   | { type: "CONFIG_EXPORTED"; data: ConfigExport }
@@ -210,6 +217,7 @@ export function isArfyinMessage(message: unknown): message is ArfyinMessage {
     "MOVE_TAB",
     "GET_CONFIG",
     "SET_QUICK_ACCESS",
+    "UPDATE_CONFIG",
     "EXPORT_DATA",
     "IMPORT_DATA",
     "EXPORT_CONFIG",

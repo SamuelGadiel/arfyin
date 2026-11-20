@@ -35,6 +35,11 @@ class ArfyinStore {
     await this.loadAll();
   }
 
+  async updateConfig(patch: Partial<AppConfig>): Promise<void> {
+    await send({ type: "UPDATE_CONFIG", patch });
+    await this.loadAll();
+  }
+
   async createGroup(name: string): Promise<void> {
     await send({ type: "CREATE_GROUP", name });
     await this.loadAll();

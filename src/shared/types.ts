@@ -43,12 +43,24 @@ export interface QuickAccessItem {
   title: string;
 }
 
+export type LayoutMode = "scroll-reveal" | "coexistent" | "no-clock";
+
+export interface ClockConfig {
+  format24h: boolean;
+}
+
 export interface AppConfig {
   quickAccess: QuickAccessItem[];
+  layoutMode: LayoutMode;
+  clock: ClockConfig;
 }
 
 export function defaultAppConfig(): AppConfig {
-  return { quickAccess: [] };
+  return {
+    quickAccess: [],
+    layoutMode: "coexistent",
+    clock: { format24h: true },
+  };
 }
 
 export interface DataExport {

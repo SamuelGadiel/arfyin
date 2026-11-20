@@ -99,7 +99,10 @@ export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
 
 export async function getAppConfig(db: ArfyinDb): Promise<AppConfig> {
   const config = await db.get("config", APP_CONFIG_KEY);
-  return config ?? defaultAppConfig();
+  // merge defensivo: registros gravados antes de um campo novo existir nao
+  // devem quebrar leituras futuras (ex.: layoutMode/clock adicionados depois
+  // de quickAccess).
+  return { ...defaultAppConfig(), ...config };
 }
 
 export async function setAppConfig(db: ArfyinDb, config: AppConfig): Promise<void> {

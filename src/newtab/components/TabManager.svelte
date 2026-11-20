@@ -1,5 +1,6 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
+  import type { LayoutMode } from "@/shared/types";
   import GroupItem from "./GroupItem.svelte";
   import UngroupedSection from "./UngroupedSection.svelte";
   import SyncStatusBanner from "./SyncStatusBanner.svelte";
@@ -29,6 +30,17 @@
       <select bind:value={sortMode}>
         <option value="manual">Manual</option>
         <option value="alphabetical">Alfabética</option>
+      </select>
+    </label>
+    <label class="sort-toggle">
+      Layout:
+      <select
+        value={store.config.layoutMode}
+        onchange={(e) => store.updateConfig({ layoutMode: e.currentTarget.value as LayoutMode })}
+      >
+        <option value="coexistent">Relógio + abas juntos</option>
+        <option value="scroll-reveal">Relógio em tela cheia (scroll revela abas)</option>
+        <option value="no-clock">Sem relógio</option>
       </select>
     </label>
   </div>

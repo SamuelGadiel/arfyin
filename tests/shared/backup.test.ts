@@ -92,7 +92,11 @@ describe("export/import de configuracao", () => {
     const exported = await exportConfig(db);
     expect(exported.config.quickAccess).toEqual([]);
 
-    const newConfig = { quickAccess: [{ slot: 1, url: "https://x.com", title: "X" }] };
+    const newConfig = {
+      quickAccess: [{ slot: 1, url: "https://x.com", title: "X" }],
+      layoutMode: "no-clock" as const,
+      clock: { format24h: false },
+    };
     await importConfigExport(db, { schemaVersion: 1, exportedAt: 123, config: newConfig });
 
     expect(await getAppConfig(db)).toEqual(newConfig);

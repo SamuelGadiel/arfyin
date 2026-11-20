@@ -161,6 +161,11 @@ export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promis
       await setAppConfig(db, { ...config, quickAccess: message.quickAccess });
       return { type: "QUICK_ACCESS_SET" };
     }
+    case "UPDATE_CONFIG": {
+      const config = await getAppConfig(db);
+      await setAppConfig(db, { ...config, ...message.patch });
+      return { type: "CONFIG_UPDATED" };
+    }
     case "EXPORT_DATA":
       return { type: "DATA_EXPORTED", data: await exportAllData(db) };
     case "IMPORT_DATA":

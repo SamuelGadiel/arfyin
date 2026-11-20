@@ -23,10 +23,6 @@
 | ARF-066 | THEME | Fonte imagem(ns) local(is) do usuário, com rotação | F5 |
 | ARF-067 | THEME | Configuração de frequência de troca / travar em imagem fixa | F6 |
 | ARF-068 | THEME | Customização do relógio (24h/AMPM, fuso, formato data, fonte, tamanho, cor) | F7 |
-| ARF-090 | LAYOUT | Layout "scroll reveal" (relógio → scroll único → gestão de abas) | I1 |
-| ARF-091 | LAYOUT | Layout "coexistente" (relógio + abas no mesmo espaço) | I2 |
-| ARF-092 | LAYOUT | Layout "sem relógio" | I3 |
-| ARF-093 | LAYOUT | Configuração de qual layout usar | I1, I2, I3 |
 | ARF-110 | QA | Playwright e2e: extensão carregada no Chrome real (fluxos críticos) | — |
 | ARF-120 | RELEASE | Empacotamento + checklist de publicação na Chrome Web Store | — |
 
@@ -57,3 +53,4 @@
 | ARF-070 | ZEN | Barra de espaço → modo zen, por aba | [sdd/ARF-070-zen-mode.md](sdd/ARF-070-zen-mode.md) |
 | ARF-100/101/102/103 | QUICK | Acesso rápido 1-9, modificador sem foco, tecla 0 abre todos | [sdd/ARF-100-103-quick-access.md](sdd/ARF-100-103-quick-access.md) |
 | ARF-013/014/015/016 | SYNC | Exportar/importar dados (duplica) e configuração (substitui) | [sdd/ARF-013-016-backup.md](sdd/ARF-013-016-backup.md) |
+| ARF-090/091/092/093 | LAYOUT | 3 modos de layout (coexistente/scroll-reveal/sem relógio) + Clock básico | [sdd/ARF-090-093-layout.md](sdd/ARF-090-093-layout.md) |
