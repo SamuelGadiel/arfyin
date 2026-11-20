@@ -63,9 +63,7 @@
 
 ## In Progress
 
-| ID | Epic | Card | SDD |
-|---|---|---|---|
-| ARF-010 | SYNC | Schema Supabase (tabelas `groups`, `tabs`) + RLS por usuário + cliente `supabase-js` | [sdd/ARF-010-supabase-schema.md](sdd/ARF-010-supabase-schema.md) |
+*(vazio)*
 
 ## Blocked
 
@@ -77,3 +75,4 @@
 |---|---|---|---|
 | ARF-001 | SETUP | Scaffolding do projeto: MV3 + TS + Vite + Svelte + estrutura de pastas + pipeline de testes | [sdd/ARF-001-project-scaffolding.md](sdd/ARF-001-project-scaffolding.md) |
 | ARF-020/021 | CORE | Modelo de dados (Group + SavedTab) + camada de storage local (IndexedDB) | [sdd/ARF-020-021-data-model-and-storage.md](sdd/ARF-020-021-data-model-and-storage.md) |
+| ARF-010 | SYNC | Schema Supabase (tabelas `groups`, `tabs`) + RLS por usuário + cliente `supabase-js` — migração aplicada e validada em produção via Management API | [sdd/ARF-010-supabase-schema.md](sdd/ARF-010-supabase-schema.md) |

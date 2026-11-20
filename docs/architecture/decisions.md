@@ -87,3 +87,15 @@ arfyin/
 **A solução que teria respaldo real**, se fosse necessária: um cron **externo**, fora do Postgres, fazendo uma chamada HTTP real contra a API REST do Supabase — por exemplo, um script simples agendado no servidor Oracle Cloud do usuário (sempre ligado, independente do Chrome estar aberto ou não), inserindo uma linha numa tabela de heartbeat via requisição à API. Isso se encaixa exatamente no critério documentado ("sending real requests from your app").
 
 **Por quê adiar mesmo assim**: decisão do usuário, não técnica — ele não espera ficar uma semana sem abrir o Chrome; se acontecer, é pontual e reativar manualmente no painel é aceitável. A decisão só é segura porque o ADR-010 garante que uma pausa nunca quebra a extensão, apenas aciona um aviso visual. Revisitar **somente se a pausa virar um problema recorrente na prática** — não implementar preventivamente (YAGNI).
+
+## ADR-012 — Automação de schema: Management API + MCP, sem GitHub integration
+
+**Decisão**: Mudanças de schema no Supabase (migrações) são aplicadas diretamente por mim via **Supabase Management API** (`POST /v1/projects/{ref}/database/query`) e, a partir de agora, via o **MCP oficial do Supabase** (`@supabase/mcp-server-supabase`, rodando localmente via `npx`, escopado ao projeto `arfyin` via `--project-ref`). O arquivo `supabase/migrations/*.sql` no repositório continua existindo como **histórico documentado** do que foi aplicado, mas não é a fonte que efetivamente aplica a mudança.
+
+**Por quê não GitHub integration**: a Supabase oferece deploy automático de migrações a partir de um repositório conectado. Descartado para não criar dois mecanismos paralelos de aplicar schema (push automático da Supabase + eu aplicando direto via API/MCP) — risco de divergência entre o que está documentado no repo e o que foi efetivamente rodado. Mantemos uma única fonte de aplicação real.
+
+**Credencial usada**: Personal Access Token (PAT) do Supabase, gerado pelo usuário com **"Full access" escopado somente ao projeto `arfyin`** (não à organização). Decisão consciente do usuário após eu apresentar a alternativa de permissões granulares (`database:read-write` apenas) — ele preferiu simplicidade a granularidade fina, aceitando o único risco residual relevante (capacidade de deletar o projeto via API, ação irreversível, mas de baixa probabilidade de ocorrer por engano). O token:
+- **Nunca é commitado no repositório.** Fica apenas na configuração do MCP em `~/.claude/.claude.json` (escopo `user`, fora da pasta do projeto) — mesmo tratamento dado às credenciais do `.env`.
+- Está restrito a este projeto Supabase (`--project-ref=fmcfxfuzxynxtebgekcr`), nunca alcança outros projetos ou a organização.
+
+**Validação feita**: migração `0001_groups_and_tabs.sql` aplicada via Management API (HTTP 201) e confirmada com uma query de verificação (`pg_tables` mostrando `groups`/`tabs` com `rowsecurity = true`).
