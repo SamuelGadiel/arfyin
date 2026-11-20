@@ -52,3 +52,12 @@
 - **Configurado o MCP oficial do Supabase** (`claude mcp add supabase --scope user --env SUPABASE_ACCESS_TOKEN=... -- npx -y @supabase/mcp-server-supabase@latest --project-ref=fmcfxfuzxynxtebgekcr`) — token salvo só em `~/.claude/.claude.json` (fora do repo), servidor escopado só a este projeto. Conectado (`claude mcp list` confirma). As ferramentas em si só aparecem depois de um reload da sessão (mesmo comportamento observado com o `chrome-devtools-mcp` no início do projeto).
 - `ARF-010` movido para **Done** no kanban — schema aplicado e validado em produção.
 - Documentado em `docs/architecture/decisions.md`: ADR-012 (automação de schema via Management API/MCP, sem GitHub integration, tratamento do PAT).
+
+## 2026-11-20 (continuação) — primeira auditoria com o MCP do Supabase
+
+- Reload do VSCode confirmado: ferramentas `mcp__supabase__*` disponíveis (list_tables, execute_sql, apply_migration, get_advisors, list_migrations, etc.).
+- `list_tables` confirmou `groups`/`tabs` com RLS habilitado, colunas e FKs batendo com o schema planejado.
+- `get_advisors(security)` acusou 2 avisos: a função `public.rls_auto_enable()` (gerada automaticamente pelo Supabase por causa da opção "Enable RLS on new tables automatically" marcada na criação do projeto) estava exposta via RPC público para `anon`/`authenticated`. Investiguei a definição da função antes de mexer (não é código nosso, é um event trigger interno deles) e corrigi revogando `EXECUTE` — primeiro só de `anon`/`authenticated` (não resolveu, advisor continuou acusando), depois entendi que o Postgres concede `EXECUTE` a `PUBLIC` por padrão em funções novas e revoguei de `PUBLIC` também. Advisors de segurança zerados depois disso.
+- `get_advisors(performance)` acusou: FK `tabs.group_id` sem índice dedicado cobrindo (o índice composto existente não cobre buscas só por `group_id`) e as 8 policies de RLS reavaliando `auth.uid()` por linha em vez de uma vez por query. Corrigido: índice `tabs_group_id_idx` + todas as policies reescritas com `(select auth.uid())` (recomendação oficial da documentação do Supabase). Terceiro achado ("índices nunca usados") é ruído esperado — banco ainda vazio, sem tráfego real — não exige ação.
+- Todas as correções aplicadas via `apply_migration` (não `execute_sql`) para ficarem no histórico formal do Supabase (`list_migrations` confirma). Espelhadas localmente em `supabase/migrations/0002_security_performance_fixes.sql`.
+- Formalizada em ADR-012 a prática de sempre rodar `get_advisors` depois de qualquer DDL.

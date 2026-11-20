@@ -99,3 +99,5 @@ arfyin/
 - Está restrito a este projeto Supabase (`--project-ref=fmcfxfuzxynxtebgekcr`), nunca alcança outros projetos ou a organização.
 
 **Validação feita**: migração `0001_groups_and_tabs.sql` aplicada via Management API (HTTP 201) e confirmada com uma query de verificação (`pg_tables` mostrando `groups`/`tabs` com `rowsecurity = true`).
+
+**Prática adotada a partir de agora**: com o MCP ativo, mudanças de schema (DDL) são aplicadas via `apply_migration` (não `execute_sql`, que é só para leitura/diagnóstico) — é o que registra a mudança no histórico formal de migrations do próprio Supabase (`list_migrations`). E **sempre rodar `get_advisors` (security + performance) logo depois de qualquer DDL**, conforme a própria instrução do servidor MCP recomenda — foi assim que pegamos, logo na primeira migração, uma função interna do Supabase (`rls_auto_enable`, criada automaticamente pela opção "Enable RLS on new tables automatically") exposta sem necessidade via RPC público, e duas otimizações de RLS/índice. Todas as correções viram migração própria em `supabase/migrations/`, mantendo o repo como espelho fiel do que foi aplicado.
