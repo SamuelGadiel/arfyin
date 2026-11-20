@@ -1,4 +1,12 @@
-import type { AppConfig, Group, NewSavedTabInput, QuickAccessItem, SavedTab } from "./types";
+import type {
+  AppConfig,
+  ConfigExport,
+  DataExport,
+  Group,
+  NewSavedTabInput,
+  QuickAccessItem,
+  SavedTab,
+} from "./types";
 import type { SyncStatus } from "./storage";
 
 export interface PingMessage {
@@ -112,6 +120,24 @@ export interface SetQuickAccessMessage {
   quickAccess: QuickAccessItem[];
 }
 
+export interface ExportDataMessage {
+  type: "EXPORT_DATA";
+}
+
+export interface ImportDataMessage {
+  type: "IMPORT_DATA";
+  data: DataExport;
+}
+
+export interface ExportConfigMessage {
+  type: "EXPORT_CONFIG";
+}
+
+export interface ImportConfigMessage {
+  type: "IMPORT_CONFIG";
+  data: ConfigExport;
+}
+
 export type ArfyinMessage =
   | PingMessage
   | ListGroupsMessage
@@ -130,7 +156,11 @@ export type ArfyinMessage =
   | ReorderTabMessage
   | MoveTabMessage
   | GetConfigMessage
-  | SetQuickAccessMessage;
+  | SetQuickAccessMessage
+  | ExportDataMessage
+  | ImportDataMessage
+  | ExportConfigMessage
+  | ImportConfigMessage;
 
 export type ArfyinResponse =
   | PongMessage
@@ -149,7 +179,11 @@ export type ArfyinResponse =
   | { type: "TAB_REORDERED" }
   | { type: "TAB_MOVED" }
   | { type: "CONFIG"; config: AppConfig }
-  | { type: "QUICK_ACCESS_SET" };
+  | { type: "QUICK_ACCESS_SET" }
+  | { type: "DATA_EXPORTED"; data: DataExport }
+  | { type: "DATA_IMPORTED" }
+  | { type: "CONFIG_EXPORTED"; data: ConfigExport }
+  | { type: "CONFIG_IMPORTED" };
 
 function hasType(message: unknown): message is { type: string } {
   return typeof message === "object" && message !== null && "type" in message;
@@ -176,5 +210,9 @@ export function isArfyinMessage(message: unknown): message is ArfyinMessage {
     "MOVE_TAB",
     "GET_CONFIG",
     "SET_QUICK_ACCESS",
+    "EXPORT_DATA",
+    "IMPORT_DATA",
+    "EXPORT_CONFIG",
+    "IMPORT_CONFIG",
   ].includes(message.type);
 }

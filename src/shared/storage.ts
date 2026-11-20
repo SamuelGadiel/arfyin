@@ -1,5 +1,13 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import { defaultAppConfig, type AppConfig, type Group, type NewSavedTabInput, type SavedTab } from "./types";
+import {
+  defaultAppConfig,
+  type AppConfig,
+  type ConfigExport,
+  type DataExport,
+  type Group,
+  type NewSavedTabInput,
+  type SavedTab,
+} from "./types";
 
 /**
  * IndexedDB não aceita `null` como chave de índice válida. Internamente guardamos
@@ -317,4 +325,52 @@ export async function moveTab(
     ),
   ]);
   await tx.done;
+}
+
+export async function listAllTabs(db: ArfyinDb): Promise<SavedTab[]> {
+  const stored = await db.getAll("tabs");
+  return stored.map(fromStoredTab);
+}
+
+export async function exportAllData(db: ArfyinDb): Promise<DataExport> {
+  const [groups, tabs] = await Promise.all([listGroups(db), listAllTabs(db)]);
+  return { schemaVersion: 1, exportedAt: now(), groups, tabs };
+}
+
+/**
+ * Importa um dump de dados **duplicando tudo** (novos ids via createGroup/
+ * addTabToGroup, que ja calculam order corretamente) — nunca decide o que
+ * descartar, conforme ADR-007. Preserva aparencia do grupo (cor/icone) e pin
+ * das abas, mas nao os timestamps originais (viram "agora").
+ */
+export async function importDataExport(db: ArfyinDb, data: DataExport): Promise<void> {
+  const oldToNewGroupId = new Map<string, string>();
+
+  for (const group of data.groups) {
+    const created = await createGroup(db, group.name);
+    oldToNewGroupId.set(group.id, created.id);
+    if (group.color !== null || group.icon !== null) {
+      await updateGroupAppearance(db, created.id, { color: group.color, icon: group.icon });
+    }
+    if (group.collapsed) await setGroupCollapsed(db, created.id, true);
+  }
+
+  for (const tab of data.tabs) {
+    const newGroupId = tab.groupId === null ? null : (oldToNewGroupId.get(tab.groupId) ?? null);
+    const created = await addTabToGroup(db, {
+      url: tab.url,
+      title: tab.title,
+      faviconUrl: tab.faviconUrl,
+      groupId: newGroupId,
+    });
+    if (tab.pinned) await setTabPinned(db, created.id, true);
+  }
+}
+
+export async function exportConfig(db: ArfyinDb): Promise<ConfigExport> {
+  return { schemaVersion: 1, exportedAt: now(), config: await getAppConfig(db) };
+}
+
+export async function importConfigExport(db: ArfyinDb, data: ConfigExport): Promise<void> {
+  await setAppConfig(db, data.config);
 }

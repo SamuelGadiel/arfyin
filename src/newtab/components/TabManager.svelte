@@ -4,6 +4,7 @@
   import UngroupedSection from "./UngroupedSection.svelte";
   import SyncStatusBanner from "./SyncStatusBanner.svelte";
   import LiveWindows from "./LiveWindows.svelte";
+  import BackupControls from "./BackupControls.svelte";
 
   type SortMode = "manual" | "alphabetical";
   let sortMode: SortMode = $state("manual");
@@ -31,6 +32,8 @@
       </select>
     </label>
   </div>
+
+  <BackupControls />
 
   {#if !store.loaded}
     <p class="loading">Carregando…</p>

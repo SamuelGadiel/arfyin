@@ -3,8 +3,12 @@ import {
   addTabToGroup,
   createGroup,
   deleteGroup,
+  exportAllData,
+  exportConfig,
   getAppConfig,
   getTabById,
+  importConfigExport,
+  importDataExport,
   listGroups,
   listTabsByGroup,
   listUngroupedTabs,
@@ -157,6 +161,16 @@ export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promis
       await setAppConfig(db, { ...config, quickAccess: message.quickAccess });
       return { type: "QUICK_ACCESS_SET" };
     }
+    case "EXPORT_DATA":
+      return { type: "DATA_EXPORTED", data: await exportAllData(db) };
+    case "IMPORT_DATA":
+      await importDataExport(db, message.data);
+      return { type: "DATA_IMPORTED" };
+    case "EXPORT_CONFIG":
+      return { type: "CONFIG_EXPORTED", data: await exportConfig(db) };
+    case "IMPORT_CONFIG":
+      await importConfigExport(db, message.data);
+      return { type: "CONFIG_IMPORTED" };
   }
 }
 

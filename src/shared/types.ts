@@ -50,3 +50,16 @@ export interface AppConfig {
 export function defaultAppConfig(): AppConfig {
   return { quickAccess: [] };
 }
+
+export interface DataExport {
+  schemaVersion: 1;
+  exportedAt: number;
+  groups: Group[];
+  tabs: SavedTab[];
+}
+
+export interface ConfigExport {
+  schemaVersion: 1;
+  exportedAt: number;
+  config: AppConfig;
+}

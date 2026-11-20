@@ -9,10 +9,6 @@
 | ID | Epic | Card | Ref. |
 |---|---|---|---|
 | ARF-011 | SYNC | Auth via Google OAuth (`chrome.identity.launchWebAuthFlow`) + fluxo de "conectar" em instalação nova | A1, ADR-006 |
-| ARF-013 | SYNC | Exportar dump de dados (JSON) | A2 |
-| ARF-014 | SYNC | Exportar arquivo de configuração (JSON) | A2 |
-| ARF-015 | SYNC | Importar dump de dados — merge por duplicação (nunca decide o que descartar) | A2, ADR-007 |
-| ARF-016 | SYNC | Importar configuração — substituição total | A2, ADR-007 |
 | ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
 | ARF-040 | PERSIST (v2) | Toggle: extensão assume persistência de sessão (desliga restore nativo do Chrome) | D1, D2 |
 | ARF-041 | PERSIST (v2) | Monitoramento em background funcionando sem nenhuma new-tab aberta | D3 |
@@ -60,3 +56,4 @@
 | ARF-030/031/032/033/034 | LIVE | Abas/janelas abertas em tempo real (Port, sem polling), drag para grupo com/sem fechar original | [sdd/ARF-030-034-live-tabs.md](sdd/ARF-030-034-live-tabs.md) |
 | ARF-070 | ZEN | Barra de espaço → modo zen, por aba | [sdd/ARF-070-zen-mode.md](sdd/ARF-070-zen-mode.md) |
 | ARF-100/101/102/103 | QUICK | Acesso rápido 1-9, modificador sem foco, tecla 0 abre todos | [sdd/ARF-100-103-quick-access.md](sdd/ARF-100-103-quick-access.md) |
+| ARF-013/014/015/016 | SYNC | Exportar/importar dados (duplica) e configuração (substitui) | [sdd/ARF-013-016-backup.md](sdd/ARF-013-016-backup.md) |

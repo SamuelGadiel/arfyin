@@ -79,3 +79,5 @@
 - 38 testes passando.
 - Implementado **ZEN** (ARF-070, espaço alterna, ignora quando foco está em input/textarea/contenteditable) e **QUICK** (ARF-100 a 103: novo object store `config` no IDB, bump v2→v3, até 9 itens, tecla 1-9 com foco, Cmd/Ctrl+tecla sem foco, tecla 0 abre todos — lógica de resolução de tecla isolada em função pura testada, `resolveQuickAccessKey`).
 - 42 testes passando. Validado no Chrome real.
+- Implementado **export/import** (ARF-013 a 016): `exportAllData`/`importDataExport` (duplica tudo via `createGroup`/`addTabToGroup` reaproveitados — preserva invariantes de `order`) e `exportConfig`/`importConfigExport` (substitui). UI `BackupControls.svelte` (baixa `.json` via blob, importa via `<input type=file>`). 47 testes passando (1 bug de teste corrigido: expectativa não contava o grupo original junto do duplicado).
+- Validado no Chrome real: criar grupo, exportar, importar o mesmo dump — total de grupos foi de 1 para 2, confirmando duplicação real via mensagens reais.
