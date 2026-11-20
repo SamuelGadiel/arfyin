@@ -26,3 +26,11 @@
 - Validado: `npm run typecheck` ok, `npm run test` ok (3 testes), `npm run build` gera `dist/` carregável.
 - **Instalada a extensão de desenvolvimento (`dist/`) no Chrome real do usuário** via `chrome-devtools-mcp` (`install_extension`) para validação end-to-end — id gerado pelo Chrome: `panheaopikfnpjgmipfnjjjdagfhifkg`. Confirmado visualmente: new-tab da extensão carrega e mostra "service worker: online" (ping/pong real entre newtab e background). Essa é uma extensão **não-empacotada** (modo dev); pode ser removida em `chrome://extensions` a qualquer momento sem afetar nada.
 - `ARF-001` movido Backlog → Ready → In Progress → **Done** no kanban.
+- SDD `ARF-020/021` escrito (modelo de dados Group+SavedTab e camada de storage IndexedDB).
+- `npm install idb` (wrapper IndexedDB) e `npm install -D fake-indexeddb` (IndexedDB em memória para testes, sem precisar de browser).
+- Implementado `src/shared/types.ts` (Group, SavedTab), `src/shared/storage.ts` (CRUD completo com cascata ao deletar grupo, ordenação com pin no topo), `src/background/router.ts` (roteador puro de mensagens, testável sem `chrome.*`), mensagens novas em `src/shared/messaging.ts` (LIST_GROUPS, CREATE_GROUP, LIST_TABS_BY_GROUP, ADD_TAB).
+- Renomeado alias de import de `@shared/*` para `@/*` (aponta pra `src/`) para cobrir também `@/background/*` nos testes, mantendo um único alias em vez de dois.
+- 17 testes passando (3 de messaging, 8 de storage, 4 de router — fake-indexeddb, sem mock manual de `chrome.*`).
+- Build + reload da extensão já instalada no Chrome real: criado grupo "Teste E2E" via `chrome.runtime.sendMessage` direto no console da new-tab, confirmado que persiste e é listado de volta — camada completa (UI → mensagem → router → IndexedDB real) validada ponta a ponta.
+- **Nota de limpeza**: o grupo "Teste E2E" ficou no IndexedDB local da extensão de desenvolvimento (tentativa de `indexedDB.deleteDatabase` deu timeout porque o service worker mantém a conexão aberta — comportamento esperado do IndexedDB, não é bug). Sem impacto: é a extensão de dev instalada só para validação, não interfere com Session Buddy/TabStack/Tab Group/Tabliss reais.
+- `ARF-020/021` movido para **Done** no kanban.

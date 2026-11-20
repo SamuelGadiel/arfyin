@@ -1,0 +1,25 @@
+export interface SavedTab {
+  id: string;
+  groupId: string | null;
+  url: string;
+  title: string;
+  faviconUrl: string | null;
+  order: number;
+  pinned: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  order: number;
+  collapsed: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type NewSavedTabInput = Pick<SavedTab, "url" | "title"> &
+  Partial<Pick<SavedTab, "faviconUrl" | "groupId" | "pinned">>;

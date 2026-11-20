@@ -7,10 +7,11 @@ export default defineConfig({
   plugins: [svelte(), crx({ manifest })],
   resolve: {
     alias: {
-      "@shared": "/src/shared",
+      "@": "/src",
     },
   },
   test: {
     environment: "jsdom",
+    setupFiles: ["./tests/setup.ts"],
   },
 });

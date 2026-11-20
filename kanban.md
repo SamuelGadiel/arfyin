@@ -8,15 +8,12 @@
 
 | ID | Epic | Card | Ref. |
 |---|---|---|---|
-| ARF-010 | SYNC | Cliente Supabase: schema inicial (tabelas groups, tabs, saved_sessions, config) + RLS por usuário | A1, ADR-005 |
 | ARF-011 | SYNC | Auth via Google OAuth (`chrome.identity.launchWebAuthFlow`) + fluxo de "conectar" em instalação nova | A1, ADR-006 |
 | ARF-012 | SYNC | Fila de sync em background (debounce, retry, offline-safe) entre IndexedDB local e Supabase | A1, E4, ADR-007 |
 | ARF-013 | SYNC | Exportar dump de dados (JSON) | A2 |
 | ARF-014 | SYNC | Exportar arquivo de configuração (JSON) | A2 |
 | ARF-015 | SYNC | Importar dump de dados — merge por duplicação (nunca decide o que descartar) | A2, ADR-007 |
 | ARF-016 | SYNC | Importar configuração — substituição total | A2, ADR-007 |
-| ARF-020 | CORE | Modelo de dados: grupo (nome, cor, ícone, ordem, abas) | B1 |
-| ARF-021 | CORE | Modelo de dados: aba salva (url, título, favicon, pinned, ordem) | B1, B3 |
 | ARF-022 | CORE | UI: renderizar grupos + abas salvas na new-tab | B1 |
 | ARF-023 | CORE | Grupos colapsáveis (expandir/colapsar, estado persistido) | B2 |
 | ARF-024 | CORE | Drag-and-drop: reordenar abas dentro de um grupo | B4 |
@@ -68,10 +65,13 @@
 
 ## Blocked
 
-*(vazio)*
+| ID | Epic | Card | Motivo |
+|---|---|---|---|
+| ARF-010 | SYNC | Cliente Supabase: schema inicial | Precisa de um projeto Supabase real (URL + anon key) — não é algo que se cria de forma autônoma sem interação humana (signup, verificação de e-mail). Fica Blocked até o usuário criar o projeto e fornecer as credenciais. Todo o resto do epic SYNC (ARF-011 a ARF-016) depende deste. |
 
 ## Done
 
 | ID | Epic | Card | SDD |
 |---|---|---|---|
 | ARF-001 | SETUP | Scaffolding do projeto: MV3 + TS + Vite + Svelte + estrutura de pastas + pipeline de testes | [sdd/ARF-001-project-scaffolding.md](sdd/ARF-001-project-scaffolding.md) |
+| ARF-020/021 | CORE | Modelo de dados (Group + SavedTab) + camada de storage local (IndexedDB) | [sdd/ARF-020-021-data-model-and-storage.md](sdd/ARF-020-021-data-model-and-storage.md) |

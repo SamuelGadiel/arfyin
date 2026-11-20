@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPong, isPingMessage } from "@shared/messaging";
+import { buildPong, isPingMessage } from "@/shared/messaging";
 
 describe("messaging", () => {
   it("reconhece uma PingMessage valida", () => {
