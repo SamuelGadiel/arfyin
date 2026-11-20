@@ -13,14 +13,7 @@
 | ARF-014 | SYNC | Exportar arquivo de configuração (JSON) | A2 |
 | ARF-015 | SYNC | Importar dump de dados — merge por duplicação (nunca decide o que descartar) | A2, ADR-007 |
 | ARF-016 | SYNC | Importar configuração — substituição total | A2, ADR-007 |
-| ARF-017 | SYNC | Card discreto e fixo na new-tab indicando sync fora do ar (Supabase pausado/offline) + retomada automática ao reconectar | A3, ADR-010 |
 | ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
-| ARF-022 | CORE | UI: renderizar grupos + abas salvas na new-tab | B1 |
-| ARF-023 | CORE | Grupos colapsáveis (expandir/colapsar, estado persistido) | B2 |
-| ARF-024 | CORE | Drag-and-drop: reordenar abas dentro de um grupo | B4 |
-| ARF-025 | CORE | Drag-and-drop: mover aba entre grupos / para fora de grupo | B4 |
-| ARF-026 | CORE | Ordenação geral: modo "grupos primeiro (alfabético)" vs. modo "misturado" | B4 |
-| ARF-027 | CORE | Criar grupo (botão "+", prompt de nome) | C4 |
 | ARF-030 | LIVE | Service worker: monitorar tabs/windows abertos em tempo real | C1, E2 |
 | ARF-031 | LIVE | UI: seção "abas abertas" agrupada por janela | C1 |
 | ARF-032 | LIVE | Drag aba viva → grupo (salva, mantém aberta) | C2 |
@@ -40,11 +33,6 @@
 | ARF-067 | THEME | Configuração de frequência de troca / travar em imagem fixa | F6 |
 | ARF-068 | THEME | Customização do relógio (24h/AMPM, fuso, formato data, fonte, tamanho, cor) | F7 |
 | ARF-070 | ZEN | Atalho de barra de espaço → modo zen (toggle, por aba) | G1, G2, G3, G4 |
-| ARF-080 | INTERACT | Clique em aba salva: nova aba com foco | H1 |
-| ARF-081 | INTERACT | Cmd+clique em aba salva: nova aba sem foco | H1 |
-| ARF-082 | INTERACT | Botão "abrir grupo inteiro" (todas as abas, sem foco) | H2 |
-| ARF-083 | INTERACT | Cor/ícone customizável por grupo | H3 |
-| ARF-084 | INTERACT | Pin de aba dentro do grupo (fixa no topo) | H4 |
 | ARF-090 | LAYOUT | Layout "scroll reveal" (relógio → scroll único → gestão de abas) | I1 |
 | ARF-091 | LAYOUT | Layout "coexistente" (relógio + abas no mesmo espaço) | I2 |
 | ARF-092 | LAYOUT | Layout "sem relógio" | I3 |
@@ -76,3 +64,6 @@
 | ARF-020/021 | CORE | Modelo de dados (Group + SavedTab) + camada de storage local (IndexedDB) | [sdd/ARF-020-021-data-model-and-storage.md](sdd/ARF-020-021-data-model-and-storage.md) |
 | ARF-010 | SYNC | Schema Supabase (tabelas `groups`, `tabs`) + RLS por usuário + cliente `supabase-js` — migração aplicada e validada em produção via Management API | [sdd/ARF-010-supabase-schema.md](sdd/ARF-010-supabase-schema.md) |
 | ARF-012 | SYNC | Fila de sync local↔Supabase, resiliente (para no 1º erro, preserva fila, status idle/syncing/unreachable), drenagem no alarme periódico e após cada mutação | [sdd/ARF-012-sync-queue.md](sdd/ARF-012-sync-queue.md) |
+| ARF-017 | SYNC | Card discreto e fixo na new-tab indicando sync fora do ar (poll a cada 30s) | — (implementado junto do ARF-022/027, ver SDD) |
+| ARF-022/023/024/025/026/027 | CORE | UI completa de grupos/abas: render, colapsar, drag-and-drop (reorder+move), criar grupo, ordenação manual/alfabética | [sdd/ARF-022-027-core-ui.md](sdd/ARF-022-027-core-ui.md) |
+| ARF-080/081/082/083/084 | INTERACT | Clique com/sem foco, abrir grupo inteiro, cor/ícone de grupo, pin de aba | [sdd/ARF-022-027-core-ui.md](sdd/ARF-022-027-core-ui.md) |
