@@ -143,6 +143,21 @@ export interface ImportConfigMessage {
   data: ConfigExport;
 }
 
+export interface AddAssetMessage {
+  type: "ADD_ASSET";
+  blob: Blob;
+}
+
+export interface GetAssetMessage {
+  type: "GET_ASSET";
+  id: string;
+}
+
+export interface DeleteAssetMessage {
+  type: "DELETE_ASSET";
+  id: string;
+}
+
 export type ArfyinMessage =
   | PingMessage
   | ListGroupsMessage
@@ -166,7 +181,10 @@ export type ArfyinMessage =
   | ExportDataMessage
   | ImportDataMessage
   | ExportConfigMessage
-  | ImportConfigMessage;
+  | ImportConfigMessage
+  | AddAssetMessage
+  | GetAssetMessage
+  | DeleteAssetMessage;
 
 export type ArfyinResponse =
   | PongMessage
@@ -190,7 +208,10 @@ export type ArfyinResponse =
   | { type: "DATA_EXPORTED"; data: DataExport }
   | { type: "DATA_IMPORTED" }
   | { type: "CONFIG_EXPORTED"; data: ConfigExport }
-  | { type: "CONFIG_IMPORTED" };
+  | { type: "CONFIG_IMPORTED" }
+  | { type: "ASSET_ADDED"; id: string }
+  | { type: "ASSET"; blob: Blob | null }
+  | { type: "ASSET_DELETED" };
 
 function hasType(message: unknown): message is { type: string } {
   return typeof message === "object" && message !== null && "type" in message;
@@ -222,5 +243,8 @@ export function isArfyinMessage(message: unknown): message is ArfyinMessage {
     "IMPORT_DATA",
     "EXPORT_CONFIG",
     "IMPORT_CONFIG",
+    "ADD_ASSET",
+    "GET_ASSET",
+    "DELETE_ASSET",
   ].includes(message.type);
 }

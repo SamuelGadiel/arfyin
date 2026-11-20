@@ -6,6 +6,7 @@
   import SyncStatusBanner from "./SyncStatusBanner.svelte";
   import LiveWindows from "./LiveWindows.svelte";
   import BackupControls from "./BackupControls.svelte";
+  import BackgroundSettings from "./BackgroundSettings.svelte";
 
   type SortMode = "manual" | "alphabetical";
   let sortMode: SortMode = $state("manual");
@@ -45,6 +46,7 @@
     </label>
   </div>
 
+  <BackgroundSettings />
   <BackupControls />
 
   {#if !store.loaded}

@@ -1,11 +1,14 @@
 import type { ArfyinDb } from "@/shared/storage";
 import {
+  addAsset,
   addTabToGroup,
   createGroup,
+  deleteAsset,
   deleteGroup,
   exportAllData,
   exportConfig,
   getAppConfig,
+  getAsset,
   getTabById,
   importConfigExport,
   importDataExport,
@@ -176,6 +179,13 @@ export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promis
     case "IMPORT_CONFIG":
       await importConfigExport(db, message.data);
       return { type: "CONFIG_IMPORTED" };
+    case "ADD_ASSET":
+      return { type: "ASSET_ADDED", id: await addAsset(db, message.blob) };
+    case "GET_ASSET":
+      return { type: "ASSET", blob: await getAsset(db, message.id) };
+    case "DELETE_ASSET":
+      await deleteAsset(db, message.id);
+      return { type: "ASSET_DELETED" };
   }
 }
 

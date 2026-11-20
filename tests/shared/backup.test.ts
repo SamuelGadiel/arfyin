@@ -15,6 +15,7 @@ import {
   updateGroupAppearance,
   type ArfyinDb,
 } from "@/shared/storage";
+import { defaultAppConfig } from "@/shared/types";
 
 let db: ArfyinDb;
 
@@ -93,9 +94,9 @@ describe("export/import de configuracao", () => {
     expect(exported.config.quickAccess).toEqual([]);
 
     const newConfig = {
+      ...defaultAppConfig(),
       quickAccess: [{ slot: 1, url: "https://x.com", title: "X" }],
       layoutMode: "no-clock" as const,
-      clock: { format24h: false },
     };
     await importConfigExport(db, { schemaVersion: 1, exportedAt: 123, config: newConfig });
 

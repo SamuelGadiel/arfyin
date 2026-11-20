@@ -67,6 +67,10 @@ interface ArfyinDbSchema extends DBSchema {
     key: string;
     value: AppConfig;
   };
+  assets: {
+    key: string;
+    value: Blob;
+  };
 }
 
 const APP_CONFIG_KEY = "appConfig";
@@ -79,7 +83,7 @@ export type ArfyinDb = IDBPDatabase<ArfyinDbSchema>;
  * rodarem (ver tests/setup.ts), então nenhum mock manual é necessário aqui.
  */
 export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
-  return openDB<ArfyinDbSchema>(name, 3, {
+  return openDB<ArfyinDbSchema>(name, 4, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         db.createObjectStore("groups", { keyPath: "id" });
@@ -93,8 +97,26 @@ export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
       if (oldVersion < 3) {
         db.createObjectStore("config", { keyPath: undefined });
       }
+      if (oldVersion < 4) {
+        db.createObjectStore("assets", { keyPath: undefined });
+      }
     },
   });
+}
+
+export async function addAsset(db: ArfyinDb, blob: Blob): Promise<string> {
+  const id = crypto.randomUUID();
+  await db.put("assets", blob, id);
+  return id;
+}
+
+export async function getAsset(db: ArfyinDb, id: string): Promise<Blob | null> {
+  const blob = await db.get("assets", id);
+  return blob ?? null;
+}
+
+export async function deleteAsset(db: ArfyinDb, id: string): Promise<void> {
+  await db.delete("assets", id);
 }
 
 export async function getAppConfig(db: ArfyinDb): Promise<AppConfig> {

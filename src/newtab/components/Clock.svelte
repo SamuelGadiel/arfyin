@@ -26,12 +26,17 @@
   );
 
   function toggleFormat() {
-    store.updateConfig({ clock: { format24h: !store.config.clock.format24h } });
+    store.updateConfig({ clock: { ...store.config.clock, format24h: !store.config.clock.format24h } });
   }
 </script>
 
-<button class="clock" onclick={toggleFormat} title="Alternar 24h/12h">
-  <span class="time">{timeText}</span>
+<button
+  class="clock"
+  onclick={toggleFormat}
+  title="Alternar 24h/12h"
+  style:color={store.config.clock.color}
+>
+  <span class="time" style:font-size={`${store.config.clock.fontSize}px`}>{timeText}</span>
   <span class="date">{dateText}</span>
 </button>
 
@@ -41,13 +46,11 @@
     width: 100%;
     background: none;
     border: none;
-    color: inherit;
     text-align: center;
     cursor: pointer;
   }
   .time {
     display: block;
-    font-size: 48px;
     font-weight: 300;
     letter-spacing: 2px;
   }

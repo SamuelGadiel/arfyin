@@ -14,15 +14,6 @@
 | ARF-041 | PERSIST (v2) | Monitoramento em background funcionando sem nenhuma new-tab aberta | D3 |
 | ARF-050 | PERF | Benchmark de tempo de carregamento da new-tab (meta: instantâneo) | E3 |
 | ARF-051 | PERF | Cache local servindo leitura sem round-trip de rede | E4 |
-| ARF-060 | THEME | Engine de background: imagem + darken + blur configuráveis | F1, F2 |
-| ARF-061 | THEME | Widgets centrais (relógio + data no MVP) | F3 |
-| ARF-062 | THEME | Navegação próximo/anterior background sem reload da aba | F4 |
-| ARF-063 | THEME | Fonte Unsplash com tópicos configuráveis | F5 |
-| ARF-064 | THEME | Fonte Reddit (subreddits configuráveis) | F5 |
-| ARF-065 | THEME | Fonte cor sólida (paleta + color picker) | F5 |
-| ARF-066 | THEME | Fonte imagem(ns) local(is) do usuário, com rotação | F5 |
-| ARF-067 | THEME | Configuração de frequência de troca / travar em imagem fixa | F6 |
-| ARF-068 | THEME | Customização do relógio (24h/AMPM, fuso, formato data, fonte, tamanho, cor) | F7 |
 | ARF-110 | QA | Playwright e2e: extensão carregada no Chrome real (fluxos críticos) | — |
 | ARF-120 | RELEASE | Empacotamento + checklist de publicação na Chrome Web Store | — |
 
@@ -36,7 +27,9 @@
 
 ## Blocked
 
-*(vazio)*
+| ID | Epic | Card | Motivo |
+|---|---|---|---|
+| ARF-063 | THEME | Fonte Unsplash com tópicos configuráveis | Precisa de API key de um Unsplash Developer Account do usuário — `source.unsplash.com` (sem key) está morto desde 2024 (503). A API oficial exige `Authorization: Client-ID <key>`. Mesmo padrão do Supabase/Google: só o usuário pode criar essa credencial. |
 
 ## Done
 
@@ -54,3 +47,4 @@
 | ARF-100/101/102/103 | QUICK | Acesso rápido 1-9, modificador sem foco, tecla 0 abre todos | [sdd/ARF-100-103-quick-access.md](sdd/ARF-100-103-quick-access.md) |
 | ARF-013/014/015/016 | SYNC | Exportar/importar dados (duplica) e configuração (substitui) | [sdd/ARF-013-016-backup.md](sdd/ARF-013-016-backup.md) |
 | ARF-090/091/092/093 | LAYOUT | 3 modos de layout (coexistente/scroll-reveal/sem relógio) + Clock básico | [sdd/ARF-090-093-layout.md](sdd/ARF-090-093-layout.md) |
+| ARF-060/061/062/064/065/066/067/068 | THEME | Background (cor/local/reddit) + darken/blur + navegação + frequência + relógio customizável | [sdd/ARF-060-068-theme.md](sdd/ARF-060-068-theme.md) |

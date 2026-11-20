@@ -47,19 +47,45 @@ export type LayoutMode = "scroll-reveal" | "coexistent" | "no-clock";
 
 export interface ClockConfig {
   format24h: boolean;
+  fontSize: number;
+  color: string;
+}
+
+export type BackgroundSourceKind = "solid" | "local" | "reddit" | "unsplash";
+
+export interface BackgroundConfig {
+  source: BackgroundSourceKind;
+  solidColor: string;
+  subreddits: string[];
+  unsplashTopics: string[];
+  localAssetIds: string[];
+  darken: number;
+  blur: number;
+  frequencyMinutes: number;
 }
 
 export interface AppConfig {
   quickAccess: QuickAccessItem[];
   layoutMode: LayoutMode;
   clock: ClockConfig;
+  background: BackgroundConfig;
 }
 
 export function defaultAppConfig(): AppConfig {
   return {
     quickAccess: [],
     layoutMode: "coexistent",
-    clock: { format24h: true },
+    clock: { format24h: true, fontSize: 48, color: "#eaeaea" },
+    background: {
+      source: "solid",
+      solidColor: "#121212",
+      subreddits: ["EarthPorn"],
+      unsplashTopics: ["nature"],
+      localAssetIds: [],
+      darken: 0.3,
+      blur: 0,
+      frequencyMinutes: 0,
+    },
   };
 }
 

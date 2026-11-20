@@ -3,6 +3,7 @@
   import TabManager from "./components/TabManager.svelte";
   import QuickAccessBar from "./components/QuickAccessBar.svelte";
   import Clock from "./components/Clock.svelte";
+  import BackgroundLayer from "./components/BackgroundLayer.svelte";
   import { store } from "./lib/store.svelte";
   import { resolveQuickAccessKey } from "./lib/quickAccess";
 
@@ -62,6 +63,8 @@
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
+
+<BackgroundLayer {zen} />
 
 <main>
   {#if !zen}
