@@ -20,6 +20,18 @@
 - Ao importar, é preciso **juntar com o que já está salvo na nuvem** (merge) e tratar conflitos.
 - **Decisão explícita do usuário sobre conflitos**: preferir **duplicar** em vez de tentar decidir o que manter. Justificativa dele: abas podem se repetir entre grupos, então não dá pra saber com segurança o que deveria ser descartado — duplicar é mais seguro que perder dado.
 
+### A3. Resiliência: a extensão nunca pode parar de funcionar por causa da nuvem
+- Adicionado em 2026-11-20, na discussão sobre o backend de sync (Supabase) e o risco do projeto free pausar por inatividade.
+- **Cópia local sempre presente**: a extensão já guarda uma cópia completa dos dados localmente (IndexedDB) — é isso que garante abrir uma aba e ver tudo instantaneamente, sem depender da nuvem para leitura do dia a dia.
+- **Se a conexão com o Supabase cair (projeto pausado, sem internet, etc.), a extensão continua funcionando 100% normalmente** usando só os dados locais — nada pode travar ou degradar por causa disso.
+- **Indicador visual**: quando a sincronização com a nuvem estiver fora do ar, deve aparecer um **card discreto, porém fixo**, na new-tab avisando o usuário disso (para ele saber que precisa ir no painel do Supabase reativar o projeto, se for o caso).
+- **Retomada automática**: assim que a conexão com o Supabase voltar, a extensão deve sincronizar tudo que ficou pendente localmente, sem o usuário precisar fazer nada manualmente (além de reativar o projeto pausado, que é uma ação só dele no painel do Supabase).
+
+### A4. Keep-alive contra a pausa do Supabase — decisão: adiado por escolha do usuário
+- Contexto: Supabase free pausa um projeto após 7 dias sem atividade real de API vinda de fora. Pesquisamos a fundo (ver `docs/architecture/decisions.md`, ADR-011) e confirmamos que um job `pg_cron` rodando *dentro* do Postgres provavelmente **não** conta como atividade válida (não documentado, evidência da comunidade sugere que não); a forma confirmada e documentada é tráfego real de API vindo de fora (ex.: um cron externo rodando no próprio servidor do usuário, fazendo uma chamada HTTP real).
+- **Decisão do usuário**: não implementar esse keep-alive agora. Motivo: na prática ele não espera ficar uma semana inteira sem usar o Chrome; se isso um dia acontecer, é pontual, e reativar o projeto manualmente no painel do Supabase é um esforço aceitável. Graças ao requisito A3 (resiliência total offline), mesmo se o projeto pausar, a extensão não quebra — só mostra o aviso.
+- Revisitar essa decisão **só se a pausa se tornar um problema recorrente na prática**, não antecipadamente. Se isso acontecer, a solução já desenhada é: um cron pequeno no servidor Oracle Cloud do usuário fazendo uma chamada HTTP real contra a API do Supabase (não pg_cron interno).
+
 ---
 
 ## Tema B — New-tab: estrutura de grupos e abas salvas

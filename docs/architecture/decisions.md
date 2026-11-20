@@ -71,3 +71,19 @@ arfyin/
 ```
 
 **Por quê**: Separação simples por responsabilidade (background / UI / compartilhado), sem monorepo multi-package — não há necessidade real de publicar `shared` separadamente (YAGNI). `sdd/` e `kanban.md` existem para rastreabilidade, conforme pedido explícito do usuário.
+
+## ADR-010 — Resiliência de sync: local-first com fallback gracioso
+
+**Decisão**: A UI (new-tab) **nunca** lê diretamente da nuvem. Toda leitura vem do IndexedDB local (já implementado em ARF-020/021); toda escrita do usuário grava no IndexedDB **primeiro** (otimista) e só depois é enfileirada para sync com o Supabase. O service worker mantém um `syncStatus` (`synced` | `pending` | `unreachable`) persistido, que a new-tab consulta. Quando `syncStatus === "unreachable"` por mais que um pequeno debounce (pra não piscar aviso em uma falha de rede de 1 segundo), a UI mostra um **card fixo e discreto** avisando que a sincronização está fora do ar. Quando a conexão volta, a fila de pendências é drenada automaticamente, sem ação manual do usuário (exceto reativar o projeto no painel do Supabase, se for esse o motivo da falha).
+
+**Por quê**: Requisito A3 do usuário — a extensão não pode nunca parar de funcionar por causa da nuvem estar indisponível (projeto Supabase pausado, sem internet, etc.). Essa decisão também é o que torna segura a decisão ADR-011 (adiar o keep-alive): como a extensão degrada graciosamente, uma eventual pausa do Supabase vira um aviso visual, não uma falha funcional.
+
+## ADR-011 — Keep-alive contra pausa do Supabase: adiado por decisão do usuário
+
+**Decisão**: Não implementar, por enquanto, nenhum mecanismo de keep-alive contra a pausa por inatividade do Supabase free tier.
+
+**Investigação feita**: avaliamos `pg_cron` (job agendado rodando dentro do próprio Postgres) como possível solução. Pesquisa aprofundada em fontes primárias (FAQ oficial da Supabase, discussões técnicas no GitHub oficial deles) **não confirma** que atividade puramente interna do Postgres conta para o critério de "atividade" que evita a pausa — a documentação oficial fala exclusivamente em "abrir o dashboard" ou "requisições reais vindas do seu app" (tráfego de API externo). Um colaborador da comunidade no GitHub da Supabase levanta a hipótese de que atividade interna (autovacuum, `pg_cron`, etc.) seja especificamente filtrada do critério, para impedir esse tipo de "truque". Conclusão: `pg_cron` interno é uma aposta não-documentada, não uma solução confirmada.
+
+**A solução que teria respaldo real**, se fosse necessária: um cron **externo**, fora do Postgres, fazendo uma chamada HTTP real contra a API REST do Supabase — por exemplo, um script simples agendado no servidor Oracle Cloud do usuário (sempre ligado, independente do Chrome estar aberto ou não), inserindo uma linha numa tabela de heartbeat via requisição à API. Isso se encaixa exatamente no critério documentado ("sending real requests from your app").
+
+**Por quê adiar mesmo assim**: decisão do usuário, não técnica — ele não espera ficar uma semana sem abrir o Chrome; se acontecer, é pontual e reativar manualmente no painel é aceitável. A decisão só é segura porque o ADR-010 garante que uma pausa nunca quebra a extensão, apenas aciona um aviso visual. Revisitar **somente se a pausa virar um problema recorrente na prática** — não implementar preventivamente (YAGNI).

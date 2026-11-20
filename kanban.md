@@ -9,11 +9,13 @@
 | ID | Epic | Card | Ref. |
 |---|---|---|---|
 | ARF-011 | SYNC | Auth via Google OAuth (`chrome.identity.launchWebAuthFlow`) + fluxo de "conectar" em instalação nova | A1, ADR-006 |
-| ARF-012 | SYNC | Fila de sync em background (debounce, retry, offline-safe) entre IndexedDB local e Supabase | A1, E4, ADR-007 |
+| ARF-012 | SYNC | Fila de sync em background (debounce, retry, offline-safe) entre IndexedDB local e Supabase — resiliente a Supabase indisponível/pausado, extensão 100% funcional só com dados locais nesse caso | A1, A3, E4, ADR-007, ADR-010 |
 | ARF-013 | SYNC | Exportar dump de dados (JSON) | A2 |
 | ARF-014 | SYNC | Exportar arquivo de configuração (JSON) | A2 |
 | ARF-015 | SYNC | Importar dump de dados — merge por duplicação (nunca decide o que descartar) | A2, ADR-007 |
 | ARF-016 | SYNC | Importar configuração — substituição total | A2, ADR-007 |
+| ARF-017 | SYNC | Card discreto e fixo na new-tab indicando sync fora do ar (Supabase pausado/offline) + retomada automática ao reconectar | A3, ADR-010 |
+| ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
 | ARF-022 | CORE | UI: renderizar grupos + abas salvas na new-tab | B1 |
 | ARF-023 | CORE | Grupos colapsáveis (expandir/colapsar, estado persistido) | B2 |
 | ARF-024 | CORE | Drag-and-drop: reordenar abas dentro de um grupo | B4 |
