@@ -61,13 +61,42 @@
     event.preventDefault();
     isDragOver = false;
     const payload = readDragPayload(event);
-    if (!payload || payload.kind !== "saved-tab") return;
+    if (!payload) return;
 
     const index = indexForDrop(event);
-    if (payload.sourceGroupId === group.id) {
-      store.reorderTab(payload.tabId, index);
-    } else {
-      store.moveTab(payload.tabId, group.id, index);
+    const shouldCloseOriginal = event.altKey;
+
+    if (payload.kind === "saved-tab") {
+      if (payload.sourceGroupId === group.id) {
+        store.reorderTab(payload.tabId, index);
+      } else {
+        store.moveTab(payload.tabId, group.id, index);
+      }
+      return;
+    }
+
+    if (payload.kind === "live-tab") {
+      store
+        .addTab({ url: payload.url, title: payload.title, faviconUrl: payload.faviconUrl, groupId: group.id })
+        .then(() => {
+          if (shouldCloseOriginal) chrome.tabs.remove(payload.chromeTabId);
+        });
+      return;
+    }
+
+    if (payload.kind === "live-window") {
+      store
+        .addTabs(
+          payload.tabs.map((tab) => ({
+            url: tab.url,
+            title: tab.title,
+            faviconUrl: tab.faviconUrl,
+            groupId: group.id,
+          })),
+        )
+        .then(() => {
+          if (shouldCloseOriginal) chrome.windows.remove(payload.windowId);
+        });
     }
   }
 </script>

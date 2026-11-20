@@ -1,6 +1,9 @@
 import { openArfyinDb } from "@/shared/storage";
 import { isArfyinMessage } from "@/shared/messaging";
 import { routeMessage, kickSync } from "./router";
+import { registerLiveTabsBroadcast } from "./liveTabsBroadcast";
+
+registerLiveTabsBroadcast();
 
 // Service worker MV3 e efemero — abrir o banco a cada wake-up e nao guardar
 // nada de critico so em memoria (ver ADR-003 em docs/architecture/decisions.md).

@@ -79,6 +79,16 @@ class ArfyinStore {
     await send({ type: "ADD_TAB", input });
     await this.loadAll();
   }
+
+  /** Adiciona varias abas de uma vez (ex.: salvar uma janela inteira) com um unico reload ao final. */
+  async addTabs(
+    inputs: { url: string; title: string; faviconUrl?: string | null; groupId?: string | null }[],
+  ): Promise<void> {
+    for (const input of inputs) {
+      await send({ type: "ADD_TAB", input });
+    }
+    await this.loadAll();
+  }
 }
 
 export const store = new ArfyinStore();

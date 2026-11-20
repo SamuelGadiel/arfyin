@@ -4,6 +4,7 @@
   import GroupItem from "./GroupItem.svelte";
   import UngroupedSection from "./UngroupedSection.svelte";
   import SyncStatusBanner from "./SyncStatusBanner.svelte";
+  import LiveWindows from "./LiveWindows.svelte";
 
   type SortMode = "manual" | "alphabetical";
   let sortMode: SortMode = $state("manual");
@@ -43,6 +44,7 @@
       <GroupItem {group} />
     {/each}
     <UngroupedSection />
+    <LiveWindows />
   {/if}
 
   <SyncStatusBanner />

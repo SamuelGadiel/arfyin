@@ -14,11 +14,6 @@
 | ARF-015 | SYNC | Importar dump de dados — merge por duplicação (nunca decide o que descartar) | A2, ADR-007 |
 | ARF-016 | SYNC | Importar configuração — substituição total | A2, ADR-007 |
 | ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
-| ARF-030 | LIVE | Service worker: monitorar tabs/windows abertos em tempo real | C1, E2 |
-| ARF-031 | LIVE | UI: seção "abas abertas" agrupada por janela | C1 |
-| ARF-032 | LIVE | Drag aba viva → grupo (salva, mantém aberta) | C2 |
-| ARF-033 | LIVE | Drag aba viva → grupo + modificador (salva e fecha) | C2 |
-| ARF-034 | LIVE | Drag janela viva → grupo (mesma lógica de C2/C3, em lote) | C3 |
 | ARF-040 | PERSIST (v2) | Toggle: extensão assume persistência de sessão (desliga restore nativo do Chrome) | D1, D2 |
 | ARF-041 | PERSIST (v2) | Monitoramento em background funcionando sem nenhuma new-tab aberta | D3 |
 | ARF-050 | PERF | Benchmark de tempo de carregamento da new-tab (meta: instantâneo) | E3 |
@@ -67,3 +62,4 @@
 | ARF-017 | SYNC | Card discreto e fixo na new-tab indicando sync fora do ar (poll a cada 30s) | — (implementado junto do ARF-022/027, ver SDD) |
 | ARF-022/023/024/025/026/027 | CORE | UI completa de grupos/abas: render, colapsar, drag-and-drop (reorder+move), criar grupo, ordenação manual/alfabética | [sdd/ARF-022-027-core-ui.md](sdd/ARF-022-027-core-ui.md) |
 | ARF-080/081/082/083/084 | INTERACT | Clique com/sem foco, abrir grupo inteiro, cor/ícone de grupo, pin de aba | [sdd/ARF-022-027-core-ui.md](sdd/ARF-022-027-core-ui.md) |
+| ARF-030/031/032/033/034 | LIVE | Abas/janelas abertas em tempo real (Port, sem polling), drag para grupo com/sem fechar original | [sdd/ARF-030-034-live-tabs.md](sdd/ARF-030-034-live-tabs.md) |

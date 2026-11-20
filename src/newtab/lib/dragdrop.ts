@@ -11,7 +11,22 @@ export interface SavedTabDragPayload {
   sourceGroupId: string | null;
 }
 
-export type DragPayload = SavedTabDragPayload;
+export interface LiveTabDragPayload {
+  kind: "live-tab";
+  chromeTabId: number;
+  windowId: number;
+  url: string;
+  title: string;
+  faviconUrl: string | null;
+}
+
+export interface LiveWindowDragPayload {
+  kind: "live-window";
+  windowId: number;
+  tabs: Omit<LiveTabDragPayload, "kind">[];
+}
+
+export type DragPayload = SavedTabDragPayload | LiveTabDragPayload | LiveWindowDragPayload;
 
 export function setDragPayload(event: DragEvent, payload: DragPayload): void {
   event.dataTransfer?.setData(MIME_TYPE, JSON.stringify(payload));

@@ -23,3 +23,16 @@ export interface Group {
 
 export type NewSavedTabInput = Pick<SavedTab, "url" | "title"> &
   Partial<Pick<SavedTab, "faviconUrl" | "groupId" | "pinned">>;
+
+export interface LiveTab {
+  chromeTabId: number;
+  windowId: number;
+  url: string;
+  title: string;
+  faviconUrl: string | null;
+}
+
+export interface LiveWindow {
+  windowId: number;
+  tabs: LiveTab[];
+}
