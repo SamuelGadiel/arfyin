@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "arfyin",
+  "version": "0.1.0",
+  "description": "Gerenciador de abas e new-tab pessoal do Samuel.",
+  "permissions": ["storage", "tabs"],
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "chrome_url_overrides": {
+    "newtab": "src/newtab/index.html"
+  }
+}

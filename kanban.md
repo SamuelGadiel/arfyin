@@ -72,4 +72,6 @@
 
 ## Done
 
-*(vazio)*
+| ID | Epic | Card | SDD |
+|---|---|---|---|
+| ARF-001 | SETUP | Scaffolding do projeto: MV3 + TS + Vite + Svelte + estrutura de pastas + pipeline de testes | [sdd/ARF-001-project-scaffolding.md](sdd/ARF-001-project-scaffolding.md) |
