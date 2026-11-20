@@ -63,13 +63,13 @@
 
 ## In Progress
 
-*(vazio)*
+| ID | Epic | Card | SDD |
+|---|---|---|---|
+| ARF-010 | SYNC | Schema Supabase (tabelas `groups`, `tabs`) + RLS por usuário + cliente `supabase-js` | [sdd/ARF-010-supabase-schema.md](sdd/ARF-010-supabase-schema.md) |
 
 ## Blocked
 
-| ID | Epic | Card | Motivo |
-|---|---|---|---|
-| ARF-010 | SYNC | Cliente Supabase: schema inicial | Precisa de um projeto Supabase real (URL + anon key) — não é algo que se cria de forma autônoma sem interação humana (signup, verificação de e-mail). Fica Blocked até o usuário criar o projeto e fornecer as credenciais. Todo o resto do epic SYNC (ARF-011 a ARF-016) depende deste. |
+*(vazio)*
 
 ## Done
 
