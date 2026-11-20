@@ -3,11 +3,18 @@ import {
   addTabToGroup,
   createGroup,
   deleteGroup,
+  getTabById,
   listGroups,
   listTabsByGroup,
   listUngroupedTabs,
+  moveTab,
   removeTab,
   renameGroup,
+  reorderGroup,
+  reorderTab,
+  setGroupCollapsed,
+  setTabPinned,
+  updateGroupAppearance,
 } from "@/shared/storage";
 import { buildPong, isArfyinMessage, type ArfyinMessage, type ArfyinResponse } from "@/shared/messaging";
 import { getCurrentUserId, getRemoteDb } from "@/shared/supabaseClient";
@@ -15,10 +22,19 @@ import {
   drainQueue,
   enqueueGroupDelete,
   enqueueGroupUpsert,
+  enqueueGroupsUpsert,
   enqueueTabDelete,
   enqueueTabUpsert,
+  enqueueTabsUpsert,
   getSyncStatus,
 } from "@/shared/sync";
+
+async function findGroup(db: ArfyinDb, id: string) {
+  const groups = await listGroups(db);
+  return groups.find((g) => g.id === id);
+}
+
+const findTabAnywhere = getTabById;
 
 /**
  * Dispara a drenagem da fila sem bloquear a resposta ao chamador (fire-and-forget).
@@ -88,6 +104,50 @@ export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promis
     }
     case "GET_SYNC_STATUS":
       return { type: "SYNC_STATUS", status: await getSyncStatus(db) };
+    case "SET_GROUP_COLLAPSED": {
+      await setGroupCollapsed(db, message.id, message.collapsed);
+      const group = await findGroup(db, message.id);
+      if (group) await enqueueGroupUpsert(db, group);
+      kickSync(db);
+      return { type: "GROUP_COLLAPSED_SET" };
+    }
+    case "UPDATE_GROUP_APPEARANCE": {
+      await updateGroupAppearance(db, message.id, { color: message.color, icon: message.icon });
+      const group = await findGroup(db, message.id);
+      if (group) await enqueueGroupUpsert(db, group);
+      kickSync(db);
+      return { type: "GROUP_APPEARANCE_UPDATED" };
+    }
+    case "REORDER_GROUP": {
+      await reorderGroup(db, message.id, message.newIndex);
+      await enqueueGroupsUpsert(db, await listGroups(db));
+      kickSync(db);
+      return { type: "GROUP_REORDERED" };
+    }
+    case "SET_TAB_PINNED": {
+      await setTabPinned(db, message.id, message.pinned);
+      const tab = await findTabAnywhere(db, message.id);
+      if (tab) await enqueueTabUpsert(db, tab);
+      kickSync(db);
+      return { type: "TAB_PINNED_SET" };
+    }
+    case "REORDER_TAB": {
+      const tab = await findTabAnywhere(db, message.id);
+      await reorderTab(db, message.id, message.newIndex);
+      if (tab) await enqueueTabsUpsert(db, await listTabsByGroup(db, tab.groupId));
+      kickSync(db);
+      return { type: "TAB_REORDERED" };
+    }
+    case "MOVE_TAB": {
+      const before = await findTabAnywhere(db, message.id);
+      await moveTab(db, message.id, message.newGroupId, message.newIndex);
+      if (before) {
+        await enqueueTabsUpsert(db, await listTabsByGroup(db, before.groupId));
+      }
+      await enqueueTabsUpsert(db, await listTabsByGroup(db, message.newGroupId));
+      kickSync(db);
+      return { type: "TAB_MOVED" };
+    }
   }
 }
 

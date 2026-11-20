@@ -80,11 +80,22 @@ export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
   });
 }
 
+let syncSeq = 0;
+
+/**
+ * Timestamp com resolucao extra para desempate: Date.now() sozinho (ms) pode
+ * colidir entre chamadas sequenciais rapidas (comuns em testes, e possiveis em
+ * producao numa rajada de mutacoes), o que quebraria a ordem causal da fila.
+ */
+function nextSyncOrdinal(): number {
+  return Date.now() * 1000 + (syncSeq++ % 1000);
+}
+
 export async function enqueueSyncOp(
   db: ArfyinDb,
   op: Omit<SyncOp, "id" | "createdAt">,
 ): Promise<void> {
-  const fullOp: SyncOp = { ...op, id: crypto.randomUUID(), createdAt: now() };
+  const fullOp: SyncOp = { ...op, id: crypto.randomUUID(), createdAt: nextSyncOrdinal() };
   await db.put("sync_queue", fullOp);
 }
 
@@ -187,4 +198,105 @@ export async function listTabsByGroup(
 
 export function listUngroupedTabs(db: ArfyinDb): Promise<SavedTab[]> {
   return listTabsByGroup(db, null);
+}
+
+export async function getTabById(db: ArfyinDb, id: string): Promise<SavedTab | null> {
+  const stored = await db.get("tabs", id);
+  return stored ? fromStoredTab(stored) : null;
+}
+
+export async function setGroupCollapsed(
+  db: ArfyinDb,
+  id: string,
+  collapsed: boolean,
+): Promise<void> {
+  const group = await db.get("groups", id);
+  if (!group) return;
+  await db.put("groups", { ...group, collapsed, updatedAt: now() });
+}
+
+export async function updateGroupAppearance(
+  db: ArfyinDb,
+  id: string,
+  appearance: { color?: string | null; icon?: string | null },
+): Promise<void> {
+  const group = await db.get("groups", id);
+  if (!group) return;
+  await db.put("groups", { ...group, ...appearance, updatedAt: now() });
+}
+
+export async function reorderGroup(db: ArfyinDb, groupId: string, newIndex: number): Promise<void> {
+  const groups = await listGroups(db);
+  const moved = groups.find((g) => g.id === groupId);
+  if (!moved) return;
+  const withoutMoved = groups.filter((g) => g.id !== groupId);
+  const clampedIndex = Math.max(0, Math.min(newIndex, withoutMoved.length));
+  withoutMoved.splice(clampedIndex, 0, moved);
+
+  const tx = db.transaction("groups", "readwrite");
+  await Promise.all(
+    withoutMoved.map((g, index) => tx.objectStore("groups").put({ ...g, order: index, updatedAt: now() })),
+  );
+  await tx.done;
+}
+
+export async function setTabPinned(db: ArfyinDb, id: string, pinned: boolean): Promise<void> {
+  const stored = await db.get("tabs", id);
+  if (!stored) return;
+  await db.put("tabs", { ...stored, pinned, updatedAt: now() });
+}
+
+export async function reorderTab(db: ArfyinDb, tabId: string, newIndex: number): Promise<void> {
+  const stored = await db.get("tabs", tabId);
+  if (!stored) return;
+  const tab = fromStoredTab(stored);
+  const siblings = (await listTabsByGroup(db, tab.groupId)).filter((t) => t.id !== tabId);
+  const clampedIndex = Math.max(0, Math.min(newIndex, siblings.length));
+  siblings.splice(clampedIndex, 0, tab);
+
+  const tx = db.transaction("tabs", "readwrite");
+  await Promise.all(
+    siblings.map((t, index) =>
+      tx.objectStore("tabs").put(toStoredTab({ ...t, order: index, updatedAt: t.id === tabId ? now() : t.updatedAt })),
+    ),
+  );
+  await tx.done;
+}
+
+/**
+ * Move uma aba para outro grupo (ou para fora de qualquer grupo, com
+ * `newGroupId: null`), opcionalmente numa posicao especifica. Recompacta a
+ * ordem tanto da lista de origem quanto da de destino (invariante: `order`
+ * dentro de um grupo e sempre 0..n-1 sem buracos).
+ */
+export async function moveTab(
+  db: ArfyinDb,
+  tabId: string,
+  newGroupId: string | null,
+  newIndex?: number,
+): Promise<void> {
+  const stored = await db.get("tabs", tabId);
+  if (!stored) return;
+  const tab = fromStoredTab(stored);
+
+  if (tab.groupId === newGroupId) {
+    await reorderTab(db, tabId, newIndex ?? Number.MAX_SAFE_INTEGER);
+    return;
+  }
+
+  const sourceSiblings = (await listTabsByGroup(db, tab.groupId)).filter((t) => t.id !== tabId);
+  const destSiblings = await listTabsByGroup(db, newGroupId);
+  const clampedIndex = Math.max(0, Math.min(newIndex ?? destSiblings.length, destSiblings.length));
+  const moved: SavedTab = { ...tab, groupId: newGroupId, updatedAt: now() };
+  destSiblings.splice(clampedIndex, 0, moved);
+
+  const tx = db.transaction("tabs", "readwrite");
+  const store = tx.objectStore("tabs");
+  await Promise.all([
+    ...sourceSiblings.map((t, index) => store.put(toStoredTab({ ...t, order: index }))),
+    ...destSiblings.map((t, index) =>
+      store.put(toStoredTab({ ...t, order: index, updatedAt: t.id === tabId ? now() : t.updatedAt })),
+    ),
+  ]);
+  await tx.done;
 }

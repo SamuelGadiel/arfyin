@@ -20,6 +20,14 @@ export function enqueueGroupUpsert(db: ArfyinDb, group: Group): Promise<void> {
   return enqueueSyncOp(db, { table: "groups", op: "upsert", entityId: group.id, payload: group });
 }
 
+export function enqueueGroupsUpsert(db: ArfyinDb, groups: Group[]): Promise<void[]> {
+  return Promise.all(groups.map((group) => enqueueGroupUpsert(db, group)));
+}
+
+export function enqueueTabsUpsert(db: ArfyinDb, tabs: SavedTab[]): Promise<void[]> {
+  return Promise.all(tabs.map((tab) => enqueueTabUpsert(db, tab)));
+}
+
 export function enqueueGroupDelete(db: ArfyinDb, id: string): Promise<void> {
   return enqueueSyncOp(db, { table: "groups", op: "delete", entityId: id });
 }

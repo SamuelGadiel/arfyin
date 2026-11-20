@@ -65,6 +65,44 @@ export interface GetSyncStatusMessage {
   type: "GET_SYNC_STATUS";
 }
 
+export interface SetGroupCollapsedMessage {
+  type: "SET_GROUP_COLLAPSED";
+  id: string;
+  collapsed: boolean;
+}
+
+export interface UpdateGroupAppearanceMessage {
+  type: "UPDATE_GROUP_APPEARANCE";
+  id: string;
+  color?: string | null;
+  icon?: string | null;
+}
+
+export interface ReorderGroupMessage {
+  type: "REORDER_GROUP";
+  id: string;
+  newIndex: number;
+}
+
+export interface SetTabPinnedMessage {
+  type: "SET_TAB_PINNED";
+  id: string;
+  pinned: boolean;
+}
+
+export interface ReorderTabMessage {
+  type: "REORDER_TAB";
+  id: string;
+  newIndex: number;
+}
+
+export interface MoveTabMessage {
+  type: "MOVE_TAB";
+  id: string;
+  newGroupId: string | null;
+  newIndex?: number;
+}
+
 export type ArfyinMessage =
   | PingMessage
   | ListGroupsMessage
@@ -75,7 +113,13 @@ export type ArfyinMessage =
   | DeleteGroupMessage
   | RemoveTabMessage
   | ListUngroupedTabsMessage
-  | GetSyncStatusMessage;
+  | GetSyncStatusMessage
+  | SetGroupCollapsedMessage
+  | UpdateGroupAppearanceMessage
+  | ReorderGroupMessage
+  | SetTabPinnedMessage
+  | ReorderTabMessage
+  | MoveTabMessage;
 
 export type ArfyinResponse =
   | PongMessage
@@ -86,7 +130,13 @@ export type ArfyinResponse =
   | { type: "GROUP_RENAMED" }
   | { type: "GROUP_DELETED" }
   | { type: "TAB_REMOVED" }
-  | { type: "SYNC_STATUS"; status: SyncStatus };
+  | { type: "SYNC_STATUS"; status: SyncStatus }
+  | { type: "GROUP_COLLAPSED_SET" }
+  | { type: "GROUP_APPEARANCE_UPDATED" }
+  | { type: "GROUP_REORDERED" }
+  | { type: "TAB_PINNED_SET" }
+  | { type: "TAB_REORDERED" }
+  | { type: "TAB_MOVED" };
 
 function hasType(message: unknown): message is { type: string } {
   return typeof message === "object" && message !== null && "type" in message;
@@ -105,5 +155,11 @@ export function isArfyinMessage(message: unknown): message is ArfyinMessage {
     "REMOVE_TAB",
     "LIST_UNGROUPED_TABS",
     "GET_SYNC_STATUS",
+    "SET_GROUP_COLLAPSED",
+    "UPDATE_GROUP_APPEARANCE",
+    "REORDER_GROUP",
+    "SET_TAB_PINNED",
+    "REORDER_TAB",
+    "MOVE_TAB",
   ].includes(message.type);
 }
