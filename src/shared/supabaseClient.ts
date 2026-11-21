@@ -3,6 +3,26 @@ import type { RemoteDb } from "./remote";
 
 let cachedClient: SupabaseClient | null = null;
 
+/**
+ * Service worker e paginas da extensao (new-tab) sao processos JS separados —
+ * `localStorage` (o storage padrao do supabase-js) nao existe no service worker
+ * e nao e compartilhado entre eles de qualquer forma. `chrome.storage.local` e
+ * o unico storage realmente compartilhado entre todos os contextos da mesma
+ * extensao, por isso a sessao de auth precisa viver ali.
+ */
+const chromeStorageAdapter = {
+  async getItem(key: string): Promise<string | null> {
+    const result = await chrome.storage.local.get(key);
+    return (result[key] as string | undefined) ?? null;
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    await chrome.storage.local.set({ [key]: value });
+  },
+  async removeItem(key: string): Promise<void> {
+    await chrome.storage.local.remove(key);
+  },
+};
+
 export function getSupabaseClient(): SupabaseClient {
   if (cachedClient) return cachedClient;
 
@@ -15,7 +35,14 @@ export function getSupabaseClient(): SupabaseClient {
     );
   }
 
-  cachedClient = createClient(url, publishableKey);
+  cachedClient = createClient(url, publishableKey, {
+    auth: {
+      storage: chromeStorageAdapter,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  });
   return cachedClient;
 }
 

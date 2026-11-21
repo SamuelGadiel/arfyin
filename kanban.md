@@ -8,12 +8,10 @@
 
 | ID | Epic | Card | Ref. |
 |---|---|---|---|
-| ARF-011 | SYNC | Auth via Google OAuth (`chrome.identity.launchWebAuthFlow`) + fluxo de "conectar" em instalação nova | A1, ADR-006 |
+| ARF-011b | SYNC | Validar o fluxo real de login com Google de ponta a ponta assim que o usuário configurar Google Cloud OAuth Client + Supabase Auth Provider (ver sdd/ARF-011-google-auth.md) | A1 |
 | ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
 | ARF-040 | PERSIST (v2) | Toggle: extensão assume persistência de sessão (desliga restore nativo do Chrome) | D1, D2 |
 | ARF-041 | PERSIST (v2) | Monitoramento em background funcionando sem nenhuma new-tab aberta | D3 |
-| ARF-050 | PERF | Benchmark de tempo de carregamento da new-tab (meta: instantâneo) | E3 |
-| ARF-051 | PERF | Cache local servindo leitura sem round-trip de rede | E4 |
 | ARF-110 | QA | Playwright e2e: extensão carregada no Chrome real (fluxos críticos) | — |
 | ARF-120 | RELEASE | Empacotamento + checklist de publicação na Chrome Web Store | — |
 
@@ -48,3 +46,5 @@
 | ARF-013/014/015/016 | SYNC | Exportar/importar dados (duplica) e configuração (substitui) | [sdd/ARF-013-016-backup.md](sdd/ARF-013-016-backup.md) |
 | ARF-090/091/092/093 | LAYOUT | 3 modos de layout (coexistente/scroll-reveal/sem relógio) + Clock básico | [sdd/ARF-090-093-layout.md](sdd/ARF-090-093-layout.md) |
 | ARF-060/061/062/064/065/066/067/068 | THEME | Background (cor/local/reddit) + darken/blur + navegação + frequência + relógio customizável | [sdd/ARF-060-068-theme.md](sdd/ARF-060-068-theme.md) |
+| ARF-050/051 | PERF | Validado empiricamente no Chrome real: First Contentful Paint em 184ms (leitura 100% local, sem round-trip de rede) | — |
+| ARF-011 | SYNC | Login com Google via Supabase (`signInWithIdToken` + `launchWebAuthFlow`) — código completo e validado (sem quebrar sem credencial); fluxo real ainda não testável, ver Backlog | [sdd/ARF-011-google-auth.md](sdd/ARF-011-google-auth.md) |

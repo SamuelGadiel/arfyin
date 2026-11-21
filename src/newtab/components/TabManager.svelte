@@ -7,6 +7,7 @@
   import LiveWindows from "./LiveWindows.svelte";
   import BackupControls from "./BackupControls.svelte";
   import BackgroundSettings from "./BackgroundSettings.svelte";
+  import AuthControls from "./AuthControls.svelte";
 
   type SortMode = "manual" | "alphabetical";
   let sortMode: SortMode = $state("manual");
@@ -46,6 +47,7 @@
     </label>
   </div>
 
+  <AuthControls />
   <BackgroundSettings />
   <BackupControls />
 
