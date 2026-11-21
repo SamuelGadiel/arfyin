@@ -12,7 +12,6 @@
 | ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
 | ARF-040 | PERSIST (v2) | Toggle: extensão assume persistência de sessão (desliga restore nativo do Chrome) | D1, D2 |
 | ARF-041 | PERSIST (v2) | Monitoramento em background funcionando sem nenhuma new-tab aberta | D3 |
-| ARF-110 | QA | Playwright e2e: extensão carregada no Chrome real (fluxos críticos) | — |
 | ARF-120 | RELEASE | Empacotamento + checklist de publicação na Chrome Web Store | — |
 
 ## Ready
@@ -48,3 +47,4 @@
 | ARF-060/061/062/064/065/066/067/068 | THEME | Background (cor/local/reddit) + darken/blur + navegação + frequência + relógio customizável | [sdd/ARF-060-068-theme.md](sdd/ARF-060-068-theme.md) |
 | ARF-050/051 | PERF | Validado empiricamente no Chrome real: First Contentful Paint em 184ms (leitura 100% local, sem round-trip de rede) | — |
 | ARF-011 | SYNC | Login com Google via Supabase (`signInWithIdToken` + `launchWebAuthFlow`) — código completo e validado (sem quebrar sem credencial); fluxo real ainda não testável, ver Backlog | [sdd/ARF-011-google-auth.md](sdd/ARF-011-google-auth.md) |
+| ARF-110 | QA | 2 testes e2e com Playwright, extensão carregada de verdade (dist/), dialogs tratados via `page.on("dialog")` | [sdd/ARF-110-e2e.md](sdd/ARF-110-e2e.md) |

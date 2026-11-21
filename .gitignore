@@ -7,3 +7,10 @@ build/
 .DS_Store
 .vite/
 coverage/
+
+# Per-developer Claude account selection (claudes) — not shared with the team
+.clauderc
+
+# Playwright e2e artifacts
+test-results/
+playwright-report/

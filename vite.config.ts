@@ -13,6 +13,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup.ts"],
+    // e2e/ roda com Playwright (npm run test:e2e), nao com Vitest.
+    exclude: ["**/node_modules/**", "**/e2e/**"],
     // Nunca deixar o .env real (credenciais de producao) vazar para os testes —
     // testes de sync usam fakes de RemoteDb, nao o Supabase de verdade.
     env: {
