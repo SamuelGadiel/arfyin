@@ -12,7 +12,6 @@
 | ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
 | ARF-040 | PERSIST (v2) | Toggle: extensão assume persistência de sessão (desliga restore nativo do Chrome) | D1, D2 |
 | ARF-041 | PERSIST (v2) | Monitoramento em background funcionando sem nenhuma new-tab aberta | D3 |
-| ARF-120 | RELEASE | Empacotamento + checklist de publicação na Chrome Web Store | — |
 
 ## Ready
 
@@ -48,3 +47,4 @@
 | ARF-050/051 | PERF | Validado empiricamente no Chrome real: First Contentful Paint em 184ms (leitura 100% local, sem round-trip de rede) | — |
 | ARF-011 | SYNC | Login com Google via Supabase (`signInWithIdToken` + `launchWebAuthFlow`) — código completo e validado (sem quebrar sem credencial); fluxo real ainda não testável, ver Backlog | [sdd/ARF-011-google-auth.md](sdd/ARF-011-google-auth.md) |
 | ARF-110 | QA | 2 testes e2e com Playwright, extensão carregada de verdade (dist/), dialogs tratados via `page.on("dialog")` | [sdd/ARF-110-e2e.md](sdd/ARF-110-e2e.md) |
+| ARF-120 | RELEASE | Checklist de publicação na Chrome Web Store (não executado — publicar é ação do usuário) | [docs/release-checklist.md](docs/release-checklist.md) |
