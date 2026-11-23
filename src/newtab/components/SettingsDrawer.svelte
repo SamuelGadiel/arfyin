@@ -96,7 +96,9 @@
             {/each}
           </div>
         </div>
-        <Switch checked={store.config.quickAccessShowSlot} onChange={setQuickAccessSlot} label="Mostrar número do atalho" />
+        <div class="field">
+          <Switch checked={store.config.quickAccessShowSlot} onChange={setQuickAccessSlot} label="Mostrar número do atalho" />
+        </div>
         <div class="field">
           <span class="field-label">Arredondamento <span class="field-value">{store.config.quickAccessItemRadius}px</span></span>
           <input type="range" min="0" max="24" step="1" value={store.config.quickAccessItemRadius} oninput={setQuickAccessItemRadius} />
