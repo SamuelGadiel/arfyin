@@ -166,8 +166,18 @@
     opacity: 1;
   }
   .quick-access-button.active {
-    /* So tinge de verde — visibilidade continua so-no-hover, igual ao
-       remove-button (pedido do usuario: nao deixar o raio sempre visivel). */
-    color: #7fd1a3;
+    /* Visibilidade continua so-no-hover (igual ao remove-button) — so muda a
+       aparencia de quando visivel. Verde mais vivo que o do Switch (ali e
+       fundo de pilula, aqui e um traco fino de 14px — a mesma cor pastel
+       lia MUITO mais fraca como contorno). Usuario tambem pediu "preenchido"
+       em vez de so contorno pra identificar de relance — a Hugeicons so tem
+       estilo stroke (sem variante solid no Iconify), entao o preenchimento e
+       simulado via CSS: o path do icone (contorno fechado do raio) ganha
+       fill em vez de so stroke. */
+    color: #22c55e;
+  }
+  .quick-access-button.active :global(svg path) {
+    fill: currentColor;
+    stroke: none;
   }
 </style>
