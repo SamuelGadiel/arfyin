@@ -108,6 +108,8 @@ export interface AppConfig {
   quickAccess: QuickAccessItem[];
   quickAccessDisplayMode: QuickAccessDisplayMode;
   quickAccessShowSlot: boolean;
+  /** Arredondamento (px) do container de cada item de acesso rápido. */
+  quickAccessItemRadius: number;
   /** Controla a existencia do pseudo-grupo "Sem categoria". Desativar apaga todas as suas abas (ver UNGROUPED_ENABLED_SET). */
   ungroupedEnabled: boolean;
   /**
@@ -137,6 +139,7 @@ export function defaultAppConfig(): AppConfig {
     quickAccess: [],
     quickAccessDisplayMode: "text",
     quickAccessShowSlot: true,
+    quickAccessItemRadius: 6,
     ungroupedEnabled: true,
     confirmTabClose: true,
     layoutMode: "coexistent",

@@ -38,6 +38,11 @@
     store.updateConfig({ quickAccessShowSlot: value });
   }
 
+  function setQuickAccessItemRadius(e: Event) {
+    const value = Number((e.target as HTMLInputElement).value);
+    store.updateConfig({ quickAccessItemRadius: value });
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape" && uiState.settingsOpen) close();
   }
@@ -92,6 +97,10 @@
           </div>
         </div>
         <Switch checked={store.config.quickAccessShowSlot} onChange={setQuickAccessSlot} label="Mostrar número do atalho" />
+        <div class="field">
+          <span class="field-label">Arredondamento <span class="field-value">{store.config.quickAccessItemRadius}px</span></span>
+          <input type="range" min="0" max="24" step="1" value={store.config.quickAccessItemRadius} oninput={setQuickAccessItemRadius} />
+        </div>
       </section>
 
       <section>
@@ -261,6 +270,16 @@
   .field-label {
     font-size: 12px;
     opacity: 0.75;
+    display: flex;
+    justify-content: space-between;
+  }
+  .field-value {
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: #eaeaea;
   }
   .layout-options.inline {
     flex-direction: row;

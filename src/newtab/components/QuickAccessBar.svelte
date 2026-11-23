@@ -7,6 +7,7 @@
   let items = $derived([...store.config.quickAccess].sort((a, b) => a.slot - b.slot));
   let displayMode = $derived(store.config.quickAccessDisplayMode);
   let showSlot = $derived(store.config.quickAccessShowSlot);
+  let itemRadius = $derived(store.config.quickAccessItemRadius);
   let showDialog = $state(false);
 
   function faviconUrl(url: string): string {
@@ -28,7 +29,7 @@
 
 <div class="quick-access">
   {#each items as item (item.slot)}
-    <div class="item" class:column={displayMode === "icon-text"}>
+    <div class="item" class:column={displayMode === "icon-text"} style:border-radius="{itemRadius}px">
       {#if showSlot}<span class="slot">{item.slot}</span>{/if}
       <a href={item.url} class="link" class:column={displayMode === "icon-text"} title={item.title}>
         {#if displayMode !== "text"}
@@ -45,7 +46,7 @@
   {/each}
   {#if store.config.quickAccess.length < 9}
     <button class="add" onclick={() => (showDialog = true)}>
-      <Icon name="add" size={12} /> acesso rápido
+      <Icon name="add" size={12} /> Novo atalho
     </button>
   {/if}
 </div>
@@ -68,7 +69,6 @@
     align-items: center;
     gap: 6px;
     background: rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
     padding: 6px 10px;
     font-size: 12px;
   }
