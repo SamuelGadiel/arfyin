@@ -5,6 +5,7 @@
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
   import Icon from "./Icon.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
+  import QuickAccessDialog from "./QuickAccessDialog.svelte";
 
   interface Props {
     tab: LiveTab;
@@ -144,10 +145,19 @@
   }
 
   let isQuickAccess = $derived(store.isQuickAccess(tab.url));
+  let showQuickAccessDialog = $state(false);
 
-  function toggleQuickAccess(event: MouseEvent) {
+  // Adicionar abre o popup de "Novo acesso rapido" ja preenchido (o usuario
+  // pediu pra poder revisar/editar titulo e URL antes de confirmar, em vez de
+  // adicionar direto) — remover, por outro lado, nao precisa de nenhum dado
+  // novo, entao continua direto.
+  function handleQuickAccessClick(event: MouseEvent) {
     event.stopPropagation();
-    store.toggleQuickAccess(tab.title, tab.url);
+    if (isQuickAccess) {
+      store.removeQuickAccessByUrl(tab.url);
+    } else {
+      showQuickAccessDialog = true;
+    }
   }
 </script>
 
@@ -167,7 +177,7 @@
     <button
       class="icon-button quick-access-button"
       class:active={isQuickAccess}
-      onclick={toggleQuickAccess}
+      onclick={handleQuickAccessClick}
       title={isQuickAccess ? "Remover do acesso rápido" : "Adicionar ao acesso rápido"}
       aria-label={isQuickAccess ? "Remover do acesso rápido" : "Adicionar ao acesso rápido"}
     >
@@ -186,6 +196,14 @@
     confirmLabel="Fechar aba"
     onConfirm={doCloseTab}
     onClose={() => (showCloseConfirm = false)}
+  />
+{/if}
+
+{#if showQuickAccessDialog}
+  <QuickAccessDialog
+    initial={{ title: tab.title, url: tab.url }}
+    onSave={(title, url) => store.addQuickAccess(title, url)}
+    onClose={() => (showQuickAccessDialog = false)}
   />
 {/if}
 

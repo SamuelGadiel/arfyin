@@ -78,15 +78,6 @@ class ArfyinStore {
     await this.setQuickAccess(this.config.quickAccess.filter((i) => i.url !== url));
   }
 
-  /** Botao de "virar acesso rapido" em qualquer aba (viva ou salva): adiciona se ainda nao esta, remove se ja estava. */
-  async toggleQuickAccess(title: string, url: string): Promise<void> {
-    if (this.isQuickAccess(url)) {
-      await this.removeQuickAccessByUrl(url);
-    } else {
-      await this.addQuickAccess(title, url);
-    }
-  }
-
   async updateConfig(patch: Partial<AppConfig>): Promise<void> {
     const res = await send<"CONFIG_UPDATED">({ type: "UPDATE_CONFIG", patch });
     this.config = res.config;

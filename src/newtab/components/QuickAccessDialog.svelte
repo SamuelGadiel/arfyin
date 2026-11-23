@@ -2,13 +2,15 @@
   import Modal from "./Modal.svelte";
 
   interface Props {
+    /** Pre-preenche o formulario (ex.: "virar acesso rapido" numa aba ja aberta/salva) — null/omitido = formulario vazio, fluxo manual de sempre. */
+    initial?: { title: string; url: string } | null;
     onSave: (title: string, url: string) => void;
     onClose: () => void;
   }
-  let { onSave, onClose }: Props = $props();
+  let { initial = null, onSave, onClose }: Props = $props();
 
-  let url = $state("");
-  let title = $state("");
+  let url = $state(initial?.url ?? "");
+  let title = $state(initial?.title ?? "");
 
   /** Normaliza para ter protocolo (usuarios costumam colar so "google.com.br"). */
   function normalizeUrl(value: string): string {
