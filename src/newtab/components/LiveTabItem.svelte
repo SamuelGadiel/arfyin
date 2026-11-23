@@ -34,7 +34,10 @@
   // nem do que estiver atras dele).
   const MAX_GHOST_ROWS = 6;
 
-  function setDragGhostImage(event: DragEvent, elements: HTMLElement[], totalCount: number): void {
+  const GHOST_PADDING = 4;
+  const GHOST_GAP = 2;
+
+  function setDragGhostImage(event: DragEvent, elements: HTMLElement[], totalCount: number, draggedElement: HTMLElement): void {
     if (elements.length === 0) return;
 
     // Mesma largura da linha real — sem isto o clone (fora do layout flex que
@@ -50,9 +53,9 @@
       left: "-2000px",
       display: "flex",
       flexDirection: "column",
-      gap: "2px",
+      gap: `${GHOST_GAP}px`,
       width: `${width}px`,
-      padding: "4px",
+      padding: `${GHOST_PADDING}px`,
       // Fundo opaco proprio — garante contraste de leitura mesmo quando o
       // ghost fica sobreposto ao texto do grupo onde vai ser solto (pedido
       // explicito do usuario: "deixa um pouco mais escuro o container").
@@ -62,7 +65,8 @@
       pointerEvents: "none",
     });
 
-    for (const el of elements.slice(0, MAX_GHOST_ROWS)) {
+    const visible = elements.slice(0, MAX_GHOST_ROWS);
+    for (const el of visible) {
       wrapper.appendChild(el.cloneNode(true) as HTMLElement);
     }
     if (totalCount > MAX_GHOST_ROWS) {
@@ -73,11 +77,34 @@
     }
 
     document.body.appendChild(wrapper);
-    event.dataTransfer?.setDragImage(wrapper, 10, 10);
+
+    // Posiciona o ghost de forma que o cursor fique exatamente onde o usuario
+    // pegou a aba (relatado ao vivo: estava sempre usando um offset fixo,
+    // entao segurar o item pelo meio fazia a pre-visualizacao "pular" pro
+    // canto superior esquerdo ficar embaixo do cursor, em vez de manter o
+    // ponto onde o usuario realmente clicou). offset = onde o cursor estava
+    // DENTRO do elemento arrastado + o deslocamento desse elemento dentro do
+    // cartao empilhado (padding + altura das linhas anteriores, quando a aba
+    // arrastada nao e a primeira da selecao).
+    const draggedRect = draggedElement.getBoundingClientRect();
+    const offsetXWithinRow = event.clientX - draggedRect.left;
+    const offsetYWithinRow = event.clientY - draggedRect.top;
+
+    let rowIndex = visible.indexOf(draggedElement);
+    if (rowIndex === -1) rowIndex = visible.length - 1; // fora da faixa visivel (truncada pelo "+N")
+
+    let offsetY = GHOST_PADDING + offsetYWithinRow;
+    for (let i = 0; i < rowIndex; i++) {
+      offsetY += visible[i]!.getBoundingClientRect().height + GHOST_GAP;
+    }
+    const offsetX = GHOST_PADDING + offsetXWithinRow;
+
+    event.dataTransfer?.setDragImage(wrapper, offsetX, offsetY);
     setTimeout(() => wrapper.remove(), 0);
   }
 
   function handleDragStart(event: DragEvent) {
+    const draggedElement = event.currentTarget as HTMLElement;
     // No modo de selecao, arrastar uma aba que faz parte da selecao arrasta
     // TODAS as selecionadas de uma vez — e exatamente o pedido do usuario
     // ("seleciona todos que quer, depois arrasta tudo de uma vez").
@@ -85,13 +112,13 @@
       const tabs = liveSelectionState.selected.map(toOmitKind);
       setDragPayload(event, { kind: "live-tabs-batch", tabs });
       const selectedEls = Array.from(document.querySelectorAll<HTMLElement>(".live-tab.selected"));
-      setDragGhostImage(event, selectedEls, tabs.length);
+      setDragGhostImage(event, selectedEls, tabs.length, draggedElement);
       return;
     }
     setDragPayload(event, { kind: "live-tab", ...toOmitKind(tab) });
     // Mesmo tratamento pro item unico — ver nota acima: sem isto o navegador
     // usaria o snapshot nativo (com o papel de parede transparecendo atras).
-    setDragGhostImage(event, [event.currentTarget as HTMLElement], 1);
+    setDragGhostImage(event, [draggedElement], 1, draggedElement);
   }
 
   function handleClick() {
