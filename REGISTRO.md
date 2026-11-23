@@ -242,3 +242,7 @@ Testes: 86 passando (3 novos para o filtro de orientação do Reddit). `npx svel
 
 Pendente: nenhum commit feito — aguardando aprovação explícita, conforme a política do projeto.
 
+## 2026-11-22 (continuação) — coluna `pinned` removida do Supabase
+
+A rodada ARF-159 já tinha removido o campo `pinned` de todo o código TypeScript (tipo, storage, mensagens, router, store, push/pull do Supabase), mas deixou a coluna física `tabs.pinned` intacta no Postgres de propósito — `DROP COLUMN` é uma migração destrutiva, pedia aprovação explícita em separado. Usuário revisou e aprovou nesta rodada: coluna dropada via `apply_migration` do MCP do Supabase (`supabase/migrations/0004_drop_tabs_pinned.sql`), confirmado antes que nenhuma view/índice/policy dependia dela (só RLS por `user_id`, inalterado).
+
