@@ -22,6 +22,23 @@ async function popularSubreddits(): Promise<string[]> {
   }
 }
 
+async function autocompleteSubreddits(query: string): Promise<string[]> {
+  const res = await fetch(
+    `https://www.reddit.com/api/subreddit_autocomplete_v2.json?query=${encodeURIComponent(query)}&include_over_18=true&include_profiles=false&typeahead_active=true&limit=12`,
+  );
+  const json = await res.json();
+  const children = (json?.data?.children ?? []) as RedditSearchChild[];
+  return children.map((c) => c.data?.display_name).filter((name): name is string => Boolean(name));
+}
+
+// So os N primeiros de cada busca entram na combinacao — confirmado ao vivo
+// que tanto a busca crua quanto a enviesada degradam pra resultados sem
+// nenhuma relacao com o termo buscado depois de poucos itens (ex.: "mountain
+// wallpaper" cai pra "disneyparksmusic" a partir do 3º resultado). O proprio
+// Reddit ja ordena por relevancia, entao os primeiros de cada lista sao os
+// unicos que valem a pena mostrar.
+const RESULTS_PER_QUERY = 6;
+
 export async function searchSubreddits(query: string): Promise<string[]> {
   const q = query.trim();
   if (!q) return popularSubreddits();
@@ -30,14 +47,30 @@ export async function searchSubreddits(query: string): Promise<string[]> {
     // vivo que o Reddit bloqueia esse endpoint especifico mesmo a partir de
     // um Chrome real (nao era so o sandbox de dev). O autocomplete usado pela
     // propria busca de subreddit do site funciona normalmente.
-    const res = await fetch(
-      `https://www.reddit.com/api/subreddit_autocomplete_v2.json?query=${encodeURIComponent(q)}&include_over_18=true&include_profiles=false&typeahead_active=true&limit=12`,
-    );
-    const json = await res.json();
-    const children = (json?.data?.children ?? []) as RedditSearchChild[];
-    return children
-      .map((c) => c.data?.display_name)
-      .filter((name): name is string => Boolean(name));
+    //
+    // A busca "crua" (`q`) sozinha traz muito subreddit sem nada a ver com
+    // papel de parede (ex.: buscar "anime" trazia "animepiracy",
+    // "anime_titties"...). Enviesar a query com " wallpaper" traz subreddits
+    // de fato focados nisso (ex.: "Animewallpaper") — mas SOZINHA tambem nao
+    // basta: pra termos mais genericos (ex.: "earth") ela as vezes nao traz o
+    // subreddit mais obvio e estabelecido ("EarthPorn", convencao classica de
+    // fotografia no Reddit). Por isso combina as duas em vez de substituir
+    // uma pela outra — nenhuma API do Reddit filtra por conteudo/tema
+    // visual, so por texto do nome/descricao, entao isto e uma melhoria de
+    // "enviesar a ordem", nao um filtro perfeito.
+    const [biased, plain] = await Promise.all([
+      autocompleteSubreddits(`${q} wallpaper`).catch(() => []),
+      autocompleteSubreddits(q).catch(() => []),
+    ]);
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const name of [...biased.slice(0, RESULTS_PER_QUERY), ...plain.slice(0, RESULTS_PER_QUERY)]) {
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(name);
+    }
+    return merged;
   } catch {
     return [];
   }

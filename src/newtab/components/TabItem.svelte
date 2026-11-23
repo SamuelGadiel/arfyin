@@ -3,12 +3,14 @@
   import { store } from "../lib/store.svelte";
   import { setDragPayload } from "../lib/dragdrop";
   import Icon from "./Icon.svelte";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
     tab: SavedTab;
   }
 
   let { tab }: Props = $props();
+  let showRemoveConfirm = $state(false);
 
   function open(event: MouseEvent) {
     event.preventDefault();
@@ -19,9 +21,17 @@
     setDragPayload(event, { kind: "saved-tab", tabId: tab.id, sourceGroupId: tab.groupId });
   }
 
+  function doRemove() {
+    store.removeTab(tab.id);
+  }
+
   function remove(event: MouseEvent) {
     event.stopPropagation();
-    store.removeTab(tab.id);
+    if (store.config.confirmTabClose) {
+      showRemoveConfirm = true;
+      return;
+    }
+    doRemove();
   }
 </script>
 
@@ -44,6 +54,16 @@
     <Icon name="x" size={14} />
   </button>
 </div>
+
+{#if showRemoveConfirm}
+  <ConfirmDialog
+    title="Remover aba"
+    message={`Remover "${tab.title}" deste grupo? Essa ação não pode ser desfeita.`}
+    confirmLabel="Remover"
+    onConfirm={doRemove}
+    onClose={() => (showRemoveConfirm = false)}
+  />
+{/if}
 
 <style>
   .tab-item {

@@ -18,6 +18,30 @@ describe("extractImageUrls", () => {
   it("lista vazia retorna lista vazia", () => {
     expect(extractImageUrls([])).toEqual([]);
   });
+
+  it("descarta imagens em retrato (largura < altura), mantem paisagem e quadrada", () => {
+    const posts = [
+      { data: { url: "https://i.redd.it/landscape.jpg", preview: { images: [{ source: { width: 1600, height: 900 } }] } } },
+      { data: { url: "https://i.redd.it/portrait.jpg", preview: { images: [{ source: { width: 900, height: 1600 } }] } } },
+      { data: { url: "https://i.redd.it/square.jpg", preview: { images: [{ source: { width: 1000, height: 1000 } }] } } },
+    ];
+    expect(extractImageUrls(posts)).toEqual([
+      "https://i.redd.it/landscape.jpg",
+      "https://i.redd.it/square.jpg",
+    ]);
+  });
+
+  it("sem nenhuma dimensao disponivel, mantem o post (nao esvazia o pool por falta de metadado)", () => {
+    const posts = [{ data: { url: "https://i.redd.it/sem-dados.jpg" } }];
+    expect(extractImageUrls(posts)).toEqual(["https://i.redd.it/sem-dados.jpg"]);
+  });
+
+  it("cai para thumbnail_width/height quando nao ha preview.images", () => {
+    const posts = [
+      { data: { url: "https://i.redd.it/portrait-thumb.jpg", thumbnail_width: 140, thumbnail_height: 210 } },
+    ];
+    expect(extractImageUrls(posts)).toEqual([]);
+  });
 });
 
 describe("pickRandom", () => {

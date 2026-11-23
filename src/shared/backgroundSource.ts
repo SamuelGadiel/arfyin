@@ -4,19 +4,39 @@ export interface MinimalRedditPost {
     url?: string;
     post_hint?: string;
     over_18?: boolean;
+    preview?: { images?: Array<{ source?: { width?: number; height?: number } }> };
+    thumbnail_width?: number;
+    thumbnail_height?: number;
   };
 }
 
 const IMAGE_EXTENSION = /\.(jpe?g|png|webp|gif)$/i;
 
 /**
- * Extrai URLs de imagem de uma listagem do Reddit, ignorando NSFW e posts
- * que nao sao imagem direta (ex.: links externos, texto, video). Funcao pura
- * — testavel sem fetch real.
+ * Papel de parede em retrato corta muito quando esticado pra cobrir a tela
+ * toda (relatado ao vivo pelo usuario) — so landscape (incluindo quadrado)
+ * passa. Dimensao vem de `preview.images[0].source` (gerado pelo proprio
+ * Reddit pra quase todo post de imagem); cai pro thumbnail como segunda
+ * tentativa. Sem NENHUMA dimensao disponivel, deixa passar — preferimos um
+ * post ocasionalmente errado a esvaziar o pool de candidatos por falta de
+ * metadado.
+ */
+function isLandscape(post: MinimalRedditPost): boolean {
+  const source = post.data.preview?.images?.[0]?.source;
+  const width = source?.width ?? post.data.thumbnail_width;
+  const height = source?.height ?? post.data.thumbnail_height;
+  if (!width || !height) return true;
+  return width >= height;
+}
+
+/**
+ * Extrai URLs de imagem de uma listagem do Reddit, ignorando NSFW, posts
+ * que nao sao imagem direta (ex.: links externos, texto, video) e imagens em
+ * retrato. Funcao pura — testavel sem fetch real.
  */
 export function extractImageUrls(posts: MinimalRedditPost[]): string[] {
   return posts
-    .filter((post) => !post.data.over_18)
+    .filter((post) => !post.data.over_18 && isLandscape(post))
     .map((post) => post.data.url)
     .filter((url): url is string => typeof url === "string" && IMAGE_EXTENSION.test(url));
 }

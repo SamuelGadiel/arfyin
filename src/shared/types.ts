@@ -110,6 +110,14 @@ export interface AppConfig {
   quickAccessShowSlot: boolean;
   /** Controla a existencia do pseudo-grupo "Sem categoria". Desativar apaga todas as suas abas (ver UNGROUPED_ENABLED_SET). */
   ungroupedEnabled: boolean;
+  /**
+   * Pede confirmacao antes de fechar uma aba viva (unica ou em lote) ou
+   * remover uma aba salva de um grupo. Nao afeta "apagar grupo" nem "fechar
+   * janela inteira" — essas ja confirmam sempre, incondicionalmente, por
+   * serem operacoes maiores. Default true: alinhado ao principio do projeto
+   * de nunca perder dado por engano.
+   */
+  confirmTabClose: boolean;
   layoutMode: LayoutMode;
   clock: ClockConfig;
   background: BackgroundConfig;
@@ -130,6 +138,7 @@ export function defaultAppConfig(): AppConfig {
     quickAccessDisplayMode: "text",
     quickAccessShowSlot: true,
     ungroupedEnabled: true,
+    confirmTabClose: true,
     layoutMode: "coexistent",
     clock: {
       fontSize: 48,

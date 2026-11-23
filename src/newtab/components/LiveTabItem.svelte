@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { LiveTab } from "@/shared/types";
+  import { store } from "../lib/store.svelte";
   import { setDragPayload } from "../lib/dragdrop";
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
   import Icon from "./Icon.svelte";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
     tab: LiveTab;
@@ -10,6 +12,7 @@
 
   let { tab }: Props = $props();
   let selected = $derived(liveSelectionState.isSelected(tab.chromeTabId));
+  let showCloseConfirm = $state(false);
 
   function toOmitKind(t: LiveTab) {
     return { chromeTabId: t.chromeTabId, windowId: t.windowId, url: t.url, title: t.title, faviconUrl: t.faviconUrl };
@@ -19,22 +22,69 @@
   // elemento clicado — ao arrastar uma selecao de varias abas, visualmente
   // parecia que so UMA estava sendo arrastada (o drop em si ja aplicava as N
   // corretamente, so o feedback visual durante o arraste estava errado).
-  function setBatchDragImage(event: DragEvent, count: number): void {
+  // Pedido do usuario: nao um texto generico ("N abas selecionadas"), e sim
+  // mostrar de fato as abas sendo levadas — igual ao que acontece ao arrastar
+  // um unico item. Limita a MAX_ROWS linhas (+ "e mais N" depois disso) pra
+  // nao criar um cartao gigante quando a selecao tem dezenas de abas.
+  const MAX_GHOST_ROWS = 6;
+
+  function setBatchDragImage(event: DragEvent, tabs: ReturnType<typeof toOmitKind>[]): void {
     const ghost = document.createElement("div");
-    ghost.textContent = `${count} abas selecionadas`;
     Object.assign(ghost.style, {
       position: "fixed",
       top: "-1000px",
       left: "-1000px",
-      padding: "6px 12px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "2px",
+      padding: "6px",
       background: "rgba(30, 30, 30, 0.95)",
-      color: "#eaeaea",
-      borderRadius: "6px",
-      fontSize: "12px",
+      borderRadius: "8px",
       fontFamily: "inherit",
-      whiteSpace: "nowrap",
       pointerEvents: "none",
+      width: "240px",
     });
+
+    const visible = tabs.slice(0, MAX_GHOST_ROWS);
+    for (const t of visible) {
+      const row = document.createElement("div");
+      Object.assign(row.style, { display: "flex", alignItems: "center", gap: "6px", minWidth: "0" });
+      if (t.faviconUrl) {
+        const img = document.createElement("img");
+        img.src = t.faviconUrl;
+        Object.assign(img.style, { width: "16px", height: "16px", flexShrink: "0" });
+        row.appendChild(img);
+      } else {
+        const placeholder = document.createElement("span");
+        Object.assign(placeholder.style, {
+          width: "16px",
+          height: "16px",
+          flexShrink: "0",
+          background: "rgba(255, 255, 255, 0.2)",
+          borderRadius: "3px",
+        });
+        row.appendChild(placeholder);
+      }
+      const label = document.createElement("span");
+      label.textContent = t.title;
+      Object.assign(label.style, {
+        color: "#eaeaea",
+        fontSize: "12px",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        minWidth: "0",
+      });
+      row.appendChild(label);
+      ghost.appendChild(row);
+    }
+    if (tabs.length > MAX_GHOST_ROWS) {
+      const more = document.createElement("div");
+      more.textContent = `e mais ${tabs.length - MAX_GHOST_ROWS}…`;
+      Object.assign(more.style, { color: "#eaeaea", opacity: "0.6", fontSize: "11px", padding: "2px 22px" });
+      ghost.appendChild(more);
+    }
+
     document.body.appendChild(ghost);
     event.dataTransfer?.setDragImage(ghost, 10, 10);
     setTimeout(() => ghost.remove(), 0);
@@ -47,7 +97,7 @@
     if (liveSelectionState.active && selected && liveSelectionState.selected.length > 1) {
       const tabs = liveSelectionState.selected.map(toOmitKind);
       setDragPayload(event, { kind: "live-tabs-batch", tabs });
-      setBatchDragImage(event, tabs.length);
+      setBatchDragImage(event, tabs);
       return;
     }
     setDragPayload(event, { kind: "live-tab", ...toOmitKind(tab) });
@@ -62,9 +112,17 @@
     chrome.windows.update(tab.windowId, { focused: true });
   }
 
+  function doCloseTab() {
+    chrome.tabs.remove(tab.chromeTabId);
+  }
+
   function closeTab(event: MouseEvent) {
     event.stopPropagation();
-    chrome.tabs.remove(tab.chromeTabId);
+    if (store.config.confirmTabClose) {
+      showCloseConfirm = true;
+      return;
+    }
+    doCloseTab();
   }
 </script>
 
@@ -86,6 +144,16 @@
     </button>
   {/if}
 </div>
+
+{#if showCloseConfirm}
+  <ConfirmDialog
+    title="Fechar aba"
+    message={`Fechar "${tab.title}"? Se não estiver salva num grupo, será perdida.`}
+    confirmLabel="Fechar aba"
+    onConfirm={doCloseTab}
+    onClose={() => (showCloseConfirm = false)}
+  />
+{/if}
 
 <style>
   .live-tab {

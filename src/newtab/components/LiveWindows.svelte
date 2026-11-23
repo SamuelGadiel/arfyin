@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import type { LiveWindow } from "@/shared/types";
+  import { store } from "../lib/store.svelte";
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
   import LiveWindowSection from "./LiveWindowSection.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
@@ -20,6 +21,14 @@
   function closeSelected() {
     liveSelectionState.selected.forEach((tab) => chrome.tabs.remove(tab.chromeTabId));
     liveSelectionState.disable();
+  }
+
+  function requestCloseSelected() {
+    if (store.config.confirmTabClose) {
+      showCloseSelectedConfirm = true;
+      return;
+    }
+    closeSelected();
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -49,7 +58,7 @@
     <h2>Abas abertas</h2>
     <div class="heading-actions">
       {#if liveSelectionState.active && liveSelectionState.selected.length > 0}
-        <button class="select-toggle danger" onclick={() => (showCloseSelectedConfirm = true)}>
+        <button class="select-toggle danger" onclick={requestCloseSelected}>
           <Icon name="x" size={12} /> Fechar selecionadas ({liveSelectionState.selected.length})
         </button>
       {/if}

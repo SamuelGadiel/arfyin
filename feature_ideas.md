@@ -69,6 +69,10 @@
 ### C4. Criação rápida de grupo
 - Criar um grupo novo deve ser trivial: botão **"+"** simples, pede um nome, pronto.
 
+### C5. Confirmação ao fechar/remover abas (2026-11-22)
+- Fechar uma aba viva (única ou em lote, via seleção múltipla) e remover uma aba salva de um grupo pedem confirmação antes de agir — comportamento **configurável** (liga/desliga nas configurações, em "Gestão de abas"), default ligado.
+- Não se aplica a "apagar grupo" nem "fechar janela inteira": essas duas já confirmavam sempre, incondicionalmente, por serem operações maiores (perdem N abas de uma vez) — ficam fora do escopo desta flag.
+
 ---
 
 ## Tema D — Persistência de sessão / substituir "restaurar abas" do Chrome (v2 candidata)

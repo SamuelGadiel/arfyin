@@ -205,7 +205,7 @@
   }
 
   section {
-    padding: 18px 0;
+    padding: 22px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   }
   section:last-child {
@@ -216,7 +216,7 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     opacity: 0.5;
-    margin: 0 0 14px;
+    margin: 0 0 16px;
     font-weight: 600;
   }
 
@@ -256,7 +256,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 14px;
+    margin-bottom: 18px;
   }
   .field-label {
     font-size: 12px;

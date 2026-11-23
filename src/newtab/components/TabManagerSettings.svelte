@@ -17,6 +17,10 @@
   function setUngrouped(value: boolean) {
     store.setUngroupedEnabled(value);
   }
+
+  function setConfirmTabClose(value: boolean) {
+    store.updateConfig({ confirmTabClose: value });
+  }
 </script>
 
 <div class="field">
@@ -34,6 +38,15 @@
   {#if store.config.ungroupedEnabled}
     <p class="hint">Desativar apaga permanentemente todas as abas que estiverem soltas agora.</p>
   {/if}
+</div>
+
+<div class="field">
+  <Switch
+    checked={store.config.confirmTabClose}
+    onChange={setConfirmTabClose}
+    label="Confirmar antes de fechar/remover abas"
+  />
+  <p class="hint">Vale para fechar uma aba viva (ou várias selecionadas) e para remover uma aba salva de um grupo. Apagar grupo e fechar janela inteira sempre confirmam.</p>
 </div>
 
 <style>

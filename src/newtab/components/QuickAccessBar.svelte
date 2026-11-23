@@ -66,15 +66,15 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 6px;
-    padding: 4px 8px;
+    padding: 6px 10px;
     font-size: 12px;
   }
   .item.column {
     flex-direction: column;
-    padding: 8px 10px;
+    padding: 10px 12px;
   }
   .link {
     display: flex;
@@ -90,8 +90,8 @@
     text-align: center;
   }
   .favicon {
-    width: 16px;
-    height: 16px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
   }
   .title {

@@ -87,8 +87,11 @@ async function fetchFreshCandidates(spec: BgSpec): Promise<BackgroundCandidate[]
     const perTopic = await Promise.all(
       spec.unsplashTopics.map(async (topic) => {
         try {
+          // `orientation=landscape` e parametro oficial da API (evita papel de
+          // parede em retrato cortando muito ao esticar pra tela cheia — mesmo
+          // ajuste feito no lado do reddit em backgroundSource.ts).
           const res = await fetch(
-            `https://api.unsplash.com/photos/random?query=${encodeURIComponent(topic)}&count=10`,
+            `https://api.unsplash.com/photos/random?query=${encodeURIComponent(topic)}&count=10&orientation=landscape`,
             { headers: { Authorization: `Client-ID ${accessKey}` } },
           );
           const photos = (await res.json()) as MinimalUnsplashPhoto[];

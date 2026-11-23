@@ -4,9 +4,11 @@
   interface Props {
     title: string;
     onClose: () => void;
+    /** Modais com conteudo denso (ex.: grid de icones) pedem mais largura que o padrao de 340px. */
+    wide?: boolean;
     children: import("svelte").Snippet;
   }
-  let { title, onClose, children }: Props = $props();
+  let { title, onClose, wide = false, children }: Props = $props();
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onClose();
@@ -16,7 +18,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <button class="backdrop" onclick={onClose} aria-label="Fechar"></button>
-<div class="modal" role="dialog" aria-modal="true" aria-label={title}>
+<div class="modal" class:wide role="dialog" aria-modal="true" aria-label={title}>
   <header class="modal-header">
     <h3>{title}</h3>
     <button class="close" onclick={onClose} aria-label="Fechar"><Icon name="x" size={16} /></button>
@@ -50,6 +52,9 @@
     border-radius: 12px;
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
     color: #eaeaea;
+  }
+  .modal.wide {
+    width: 480px;
   }
   .modal-header {
     display: flex;

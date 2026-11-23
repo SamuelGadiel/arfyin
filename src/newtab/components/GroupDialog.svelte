@@ -5,7 +5,11 @@
   import { store } from "../lib/store.svelte";
   import { listAllIconNames } from "../lib/iconify";
 
-  const PAGE_SIZE = 48;
+  const PAGE_SIZE = 60;
+  // Distancia (px) ate o fundo do grid a partir da qual ja carrega a proxima
+  // pagina — carrega um pouco antes de bater no fim para nao deixar o usuario
+  // ver o "fundo do poço" antes da pagina seguinte entrar.
+  const SCROLL_LOAD_THRESHOLD = 160;
 
   interface Props {
     /** `null` = criando um grupo novo; preenchido = editando um existente. */
@@ -43,6 +47,16 @@
     visibleCount = PAGE_SIZE;
   }
 
+  // Lista infinita: em vez de um botao "mostrar mais", carrega a proxima
+  // pagina sozinho quando o usuario rola perto do fim do grid.
+  function handleIconGridScroll(e: Event) {
+    const el = e.target as HTMLDivElement;
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceToBottom < SCROLL_LOAD_THRESHOLD && visibleCount < filteredIconNames.length) {
+      visibleCount += PAGE_SIZE;
+    }
+  }
+
   function submit() {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -58,7 +72,7 @@
   }
 </script>
 
-<Modal title={initial ? "Editar grupo" : "Novo grupo"} {onClose}>
+<Modal title={initial ? "Editar grupo" : "Novo grupo"} {onClose} wide>
   <div class="field">
     <span class="field-label">Nome</span>
     <!-- svelte-ignore a11y_autofocus -->
@@ -73,21 +87,16 @@
   <div class="field">
     <span class="field-label">Ícone ({filteredIconNames.length} de {allIconNames.length})</span>
     <input class="text-input" type="text" value={iconQuery} oninput={searchIcons} placeholder="Buscar ícone…" />
-    <div class="icon-grid">
+    <div class="icon-grid" onscroll={handleIconGridScroll}>
       <button class="icon-option none" class:active={icon === null} onclick={() => (icon = null)} aria-label="Sem ícone" title="Sem ícone">
-        <Icon name="x" size={14} />
+        <Icon name="x" size={18} />
       </button>
       {#each visibleIconNames as opt (opt)}
         <button class="icon-option" class:active={icon === opt} onclick={() => (icon = opt)} aria-label={`Ícone ${opt}`} title={opt}>
-          <Icon name={opt} size={16} />
+          <Icon name={opt} size={22} />
         </button>
       {/each}
     </div>
-    {#if visibleCount < filteredIconNames.length}
-      <button class="more-icons" onclick={() => (visibleCount += PAGE_SIZE)}>
-        Mostrar mais ({filteredIconNames.length - visibleCount} restantes)
-      </button>
-    {/if}
   </div>
 
   <div class="field">
@@ -125,8 +134,8 @@
   .field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 16px;
+    gap: 8px;
+    margin-bottom: 22px;
   }
   .field-label {
     font-size: 12px;
@@ -142,17 +151,17 @@
   }
   .icon-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 6px;
-    max-height: 220px;
+    grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+    gap: 8px;
+    max-height: 320px;
     overflow-y: auto;
     padding-right: 2px;
   }
   .icon-option {
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid transparent;
-    border-radius: 8px;
-    padding: 6px;
+    border-radius: 10px;
+    padding: 10px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -166,19 +175,6 @@
   }
   .icon-option.none {
     opacity: 0.6;
-  }
-  .more-icons {
-    background: rgba(255, 255, 255, 0.06);
-    border: none;
-    color: inherit;
-    opacity: 0.75;
-    padding: 6px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 11px;
-  }
-  .more-icons:hover {
-    opacity: 1;
   }
 
   /* Copiado de GroupItem.svelte de proposito (ver comentario no template) — duplicacao aceita pra garantir fidelidade visual exata. */
