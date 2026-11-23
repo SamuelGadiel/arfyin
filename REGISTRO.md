@@ -266,3 +266,7 @@ Usuário revisou o ARF-160 ao vivo e reportou um bug real, além de mais 3 ponto
 - **Botão de criar acesso rápido renomeado**: "+ acesso rápido" → "+ Novo atalho". Avaliado contra as alternativas descartadas: "Novo item" (vago, não diz do quê) e "+ Adicionar" (verbo solto, sem substantivo, quebra o padrão já usado por "+ Novo grupo" no gestor de abas). "Novo atalho" ganhou por consistência direta com esse padrão existente ("Novo " + substantivo do que é criado) e por "atalho" ser o termo mais preciso em português pra essa feature — não só porque o usuário tinha mencionado gostar dele.
 
 Testes: 87 passando (11 em `backgroundSource.test.ts`, 3 novos). `npx svelte-check --threshold error`: 0 erros. Build limpo. Validado ao vivo: reddit/anime carregando imagem (antes tela preta), navegação prev/next funcionando, slider de arredondamento do acesso rápido, botão "Novo atalho" renderizado, ghost de arraste com classes/estilos computados idênticos ao item real.
+
+## 2026-11-23 — commits/push autônomos, crédito do Reddit, offset do cursor no drag (ARF-162)
+
+Usuário reforçou (pela 2ª vez, mais enfático) que não quer mais ciclo de proposta/aprovação de commit — quer ver o trabalho pronto, documentado e já commitado. `git push` também liberado (sem remote configurado ainda, mas a autorização já vale pra quando existir). `git push --force` continua exigindo confirmação sempre. CLAUDE.md do projeto atualizado de novo pra refletir isso com clareza (a versão anterior ainda dizia "aprovação continua obrigatória" — call errado, corrigido).
