@@ -18,76 +18,63 @@
     return { chromeTabId: t.chromeTabId, windowId: t.windowId, url: t.url, title: t.title, faviconUrl: t.faviconUrl };
   }
 
-  // Sem isto, o navegador usa como imagem de arraste um snapshot do proprio
-  // elemento clicado — ao arrastar uma selecao de varias abas, visualmente
-  // parecia que so UMA estava sendo arrastada (o drop em si ja aplicava as N
-  // corretamente, so o feedback visual durante o arraste estava errado).
-  // Pedido do usuario: nao um texto generico ("N abas selecionadas"), e sim
-  // mostrar de fato as abas sendo levadas — igual ao que acontece ao arrastar
-  // um unico item. Limita a MAX_ROWS linhas (+ "e mais N" depois disso) pra
-  // nao criar um cartao gigante quando a selecao tem dezenas de abas.
+  // O navegador, por padrao, usa como imagem de arraste um "print" real da
+  // regiao do elemento — capturado uma unica vez no instante do dragstart, o
+  // que inclui o que estiver atras dele (o papel de parede, por exemplo)
+  // transparecendo por baixo do fundo quase-transparente do `.live-tab`.
+  // Relatado ao vivo pelo usuario como indesejado tanto no item unico (via
+  // esse comportamento nativo) quanto na selecao em lote (a 1a versao desta
+  // funcao, que clonava os elementos reais mas sem um fundo opaco proprio —
+  // o fundo "selecionado" sozinho, rgba(255,255,255,0.08), e claro demais
+  // pra garantir contraste quando a prevbalidacao sobrepoe o texto do grupo
+  // de destino). Correcao: SEMPRE um drag image customizado (nunca o nativo,
+  // nem para um unico item), clonando o(s) elemento(s) `.live-tab` de
+  // verdade — mesmo CSS, mesma largura — dentro de um cartao com fundo
+  // opaco proprio (nao depende mais da transparencia do elemento de baixo
+  // nem do que estiver atras dele).
   const MAX_GHOST_ROWS = 6;
 
-  function setBatchDragImage(event: DragEvent, tabs: ReturnType<typeof toOmitKind>[]): void {
-    const ghost = document.createElement("div");
-    Object.assign(ghost.style, {
+  function setDragGhostImage(event: DragEvent, elements: HTMLElement[], totalCount: number): void {
+    if (elements.length === 0) return;
+
+    // Mesma largura da linha real — sem isto o clone (fora do layout flex que
+    // normalmente estica cada `.live-tab`) encolheria pro tamanho do
+    // conteudo, e o titulo (que normalmente corta com reticencias) apareceria
+    // por inteiro, destoando da lista real.
+    const width = elements[0]!.getBoundingClientRect().width;
+
+    const wrapper = document.createElement("div");
+    Object.assign(wrapper.style, {
       position: "fixed",
-      top: "-1000px",
-      left: "-1000px",
+      top: "-2000px",
+      left: "-2000px",
       display: "flex",
       flexDirection: "column",
       gap: "2px",
-      padding: "6px",
-      background: "rgba(30, 30, 30, 0.95)",
+      width: `${width}px`,
+      padding: "4px",
+      // Fundo opaco proprio — garante contraste de leitura mesmo quando o
+      // ghost fica sobreposto ao texto do grupo onde vai ser solto (pedido
+      // explicito do usuario: "deixa um pouco mais escuro o container").
+      background: "rgba(20, 20, 20, 0.97)",
       borderRadius: "8px",
-      fontFamily: "inherit",
+      boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
       pointerEvents: "none",
-      width: "240px",
     });
 
-    const visible = tabs.slice(0, MAX_GHOST_ROWS);
-    for (const t of visible) {
-      const row = document.createElement("div");
-      Object.assign(row.style, { display: "flex", alignItems: "center", gap: "6px", minWidth: "0" });
-      if (t.faviconUrl) {
-        const img = document.createElement("img");
-        img.src = t.faviconUrl;
-        Object.assign(img.style, { width: "16px", height: "16px", flexShrink: "0" });
-        row.appendChild(img);
-      } else {
-        const placeholder = document.createElement("span");
-        Object.assign(placeholder.style, {
-          width: "16px",
-          height: "16px",
-          flexShrink: "0",
-          background: "rgba(255, 255, 255, 0.2)",
-          borderRadius: "3px",
-        });
-        row.appendChild(placeholder);
-      }
-      const label = document.createElement("span");
-      label.textContent = t.title;
-      Object.assign(label.style, {
-        color: "#eaeaea",
-        fontSize: "12px",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-        minWidth: "0",
-      });
-      row.appendChild(label);
-      ghost.appendChild(row);
+    for (const el of elements.slice(0, MAX_GHOST_ROWS)) {
+      wrapper.appendChild(el.cloneNode(true) as HTMLElement);
     }
-    if (tabs.length > MAX_GHOST_ROWS) {
+    if (totalCount > MAX_GHOST_ROWS) {
       const more = document.createElement("div");
-      more.textContent = `e mais ${tabs.length - MAX_GHOST_ROWS}…`;
-      Object.assign(more.style, { color: "#eaeaea", opacity: "0.6", fontSize: "11px", padding: "2px 22px" });
-      ghost.appendChild(more);
+      more.textContent = `e mais ${totalCount - MAX_GHOST_ROWS}…`;
+      Object.assign(more.style, { color: "#eaeaea", opacity: "0.7", fontSize: "11px", padding: "4px 6px" });
+      wrapper.appendChild(more);
     }
 
-    document.body.appendChild(ghost);
-    event.dataTransfer?.setDragImage(ghost, 10, 10);
-    setTimeout(() => ghost.remove(), 0);
+    document.body.appendChild(wrapper);
+    event.dataTransfer?.setDragImage(wrapper, 10, 10);
+    setTimeout(() => wrapper.remove(), 0);
   }
 
   function handleDragStart(event: DragEvent) {
@@ -97,10 +84,14 @@
     if (liveSelectionState.active && selected && liveSelectionState.selected.length > 1) {
       const tabs = liveSelectionState.selected.map(toOmitKind);
       setDragPayload(event, { kind: "live-tabs-batch", tabs });
-      setBatchDragImage(event, tabs);
+      const selectedEls = Array.from(document.querySelectorAll<HTMLElement>(".live-tab.selected"));
+      setDragGhostImage(event, selectedEls, tabs.length);
       return;
     }
     setDragPayload(event, { kind: "live-tab", ...toOmitKind(tab) });
+    // Mesmo tratamento pro item unico — ver nota acima: sem isto o navegador
+    // usaria o snapshot nativo (com o papel de parede transparecendo atras).
+    setDragGhostImage(event, [event.currentTarget as HTMLElement], 1);
   }
 
   function handleClick() {
