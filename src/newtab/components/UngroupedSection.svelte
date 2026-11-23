@@ -44,7 +44,7 @@
     isDragOver = false;
     const payload = readDragPayload(event);
     if (!payload) return;
-    const shouldCloseOriginal = event.altKey;
+    const shouldCloseOriginal = event.metaKey || event.ctrlKey;
 
     if (payload.kind === "saved-tab") {
       if (payload.sourceGroupId === null) return;
@@ -106,7 +106,7 @@
   ondrop={handleDrop}
   role="group"
   aria-label="Sem categoria"
-  title="Arraste uma aba aqui para salvá-la. Segure Option (⌥) ao soltar para fechar a aba original."
+  title="Arraste uma aba aqui para salvá-la. Segure Command (⌘) ao soltar para fechar a aba original."
 >
   <header class="group-header">
     <button

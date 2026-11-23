@@ -79,7 +79,7 @@
     if (!payload) return;
 
     const index = indexForDrop(event);
-    const shouldCloseOriginal = event.altKey;
+    const shouldCloseOriginal = event.metaKey || event.ctrlKey;
 
     if (payload.kind === "saved-tab") {
       if (payload.sourceGroupId === group.id) {
@@ -145,7 +145,7 @@
   ondrop={handleDrop}
   role="group"
   aria-label={group.name}
-  title="Arraste uma aba aqui para salvá-la. Segure Option (⌥) ao soltar para fechar a aba original."
+  title="Arraste uma aba aqui para salvá-la. Segure Command (⌘) ao soltar para fechar a aba original."
 >
   <header class="group-header">
     <button

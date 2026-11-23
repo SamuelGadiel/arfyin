@@ -324,3 +324,11 @@ Usuário relatou não conseguir fazer o atalho de "arrastar uma aba viva pra um 
 **Causa raiz real do problema do usuário não era um bug — era falta de affordance**: nenhum lugar da UI jamais mencionou qual tecla usar (nem tooltip, nem texto), então não havia como ele adivinhar que era Option e não Command (a escolha mais "intuitiva" num Mac, por analogia com outros apps). Corrigido adicionando a dica diretamente nos locais onde o drop acontece: `title` no `<section class="group">` (`GroupItem.svelte`, `UngroupedSection.svelte`) e no heading arrastável de `LiveWindowSection.svelte`, todos agora explicando "Segure Option (⌥) ao soltar para fechar a aba/janela original."
 
 Testes: 89 passando (mudança é só atributo `title`, sem lógica nova). `npx svelte-check --threshold error`: 0 erros. Build limpo. Validado ao vivo: `getComputedStyle`/`getAttribute('title')` confirmam o novo texto no grupo real.
+
+## 2026-11-23 (continuação) — tecla trocada de Option para Command de verdade; "Sem categoria" confirmado funcionando
+
+Usuário testou com a tecla certa (Option) mesmo assim e reportou que arrastar pra "Sem categoria" **continuava** não adicionando nem fechando a aba, e pediu explicitamente pra trocar pra Command. Antes de mexer no código, testei ao vivo se "Sem categoria" tinha algum bug real específico (diferente dos grupos normais): criei uma aba de teste e simulei o drop sintético nela sem nenhum modificador — funcionou normalmente (aba adicionada à seção, contagem foi de 2 para 3). Ou seja, a lógica de adicionar em "Sem categoria" em si nunca teve bug; o que não funcionava era especificamente o combo com a tecla.
+
+`event.altKey` trocado por `event.metaKey || event.ctrlKey` (mesmo padrão de "modificador de ação secundária" já usado em `App.svelte`) em `GroupItem.svelte` e `UngroupedSection.svelte`. Tooltips dos 3 locais (`GroupItem`, `UngroupedSection`, `LiveWindowSection`) atualizados de "Segure Option (⌥)" para "Segure Command (⌘)". Validado ao vivo repetindo o teste anterior, agora com `metaKey: true` no evento de `drop`: aba adicionada em "Sem categoria" **e** aba viva original fechada (`chrome.tabs.query` confirmou 0 abas abertas depois). Dados de teste (abas e entradas salvas de `example.com`) removidos ao final.
+
+Testes: 89 passando. `npx svelte-check --threshold error`: 0 erros. Build limpo.
