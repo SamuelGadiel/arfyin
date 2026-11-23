@@ -18,3 +18,6 @@ Extensões MV3 em Playwright exigem `headless: false` (dialogs/service workers d
 
 ## Testes previstos
 Este próprio card É a suíte de testes — não tem "teste do teste". Cobertura deliberadamente mínima (2 fluxos) para não transformar isso num projeto à parte; expandir según necessidade real, não antecipadamente (YAGNI).
+
+## Nota (2026-11-22) — reorganização + correção de teste obsoleto
+`e2e/` (raiz do projeto) virou `tests/e2e/` — toda a suíte de testes (unitários + e2e) agora vive sob `tests/`, inclusive os artefatos de execução do Playwright (`outputDir` em `playwright.config.ts` aponta pra `tests/test-results/`, que antes ficava solto na raiz como `test-results/`). O teste de criação de grupo também estava desatualizado desde o ARF-157 (esperava `prompt()`/`confirm()` nativos e o texto "+ Novo grupo"); reescrito para interagir com os popups reais (`GroupDialog`/`ConfirmDialog`) e o texto atual do botão ("Novo grupo", sem "+" — virou ícone). Ambos os testes rodados e passando contra a extensão real após a mudança.

@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
-const EXTENSION_PATH = path.resolve(dirname, "..", "dist");
+const EXTENSION_PATH = path.resolve(dirname, "..", "..", "dist");
 
 async function launchWithExtension(): Promise<BrowserContext> {
   return chromium.launchPersistentContext("", {
@@ -25,7 +25,7 @@ test("new-tab carrega e mostra a UI principal", async () => {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/src/newtab/index.html`);
 
-  await expect(page.getByRole("button", { name: "+ Novo grupo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Novo grupo" })).toBeVisible();
 
   await context.close();
 });
@@ -37,20 +37,21 @@ test("criar um grupo via UI faz ele aparecer na lista", async () => {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/src/newtab/index.html`);
 
+  // O `prompt()`/`confirm()` nativos foram substituidos por popups proprios
+  // (Modal/GroupDialog/ConfirmDialog, ver ARF-157) -- o fluxo agora interage
+  // com esses componentes em vez de `page.on("dialog")`.
   const groupName = `E2E ${Date.now()}`;
-  page.once("dialog", (dialog) => dialog.accept(groupName));
-  await page.getByRole("button", { name: "+ Novo grupo" }).click();
+  await page.getByRole("button", { name: "Novo grupo" }).click();
+  await page.getByPlaceholder("Nome do grupo").fill(groupName);
+  await page.getByRole("button", { name: "Criar grupo" }).click();
 
-  await expect(page.getByRole("button", { name: groupName })).toBeVisible();
+  const groupButton = page.getByRole("button", { name: groupName, exact: true });
+  await expect(groupButton).toBeVisible();
 
   // limpeza: apaga o grupo criado para nao deixar lixo de teste no perfil
-  page.once("dialog", (dialog) => dialog.accept());
-  await page
-    .getByRole("button", { name: groupName })
-    .locator("..")
-    .getByTitle("Apagar grupo")
-    .click();
-  await expect(page.getByRole("button", { name: groupName })).toHaveCount(0);
+  await groupButton.locator("..").getByRole("button", { name: "Apagar grupo" }).click();
+  await page.getByRole("button", { name: "Apagar", exact: true }).click();
+  await expect(groupButton).toHaveCount(0);
 
   await context.close();
 });

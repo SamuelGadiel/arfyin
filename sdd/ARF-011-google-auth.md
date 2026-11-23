@@ -23,6 +23,8 @@ Implementa todo o código do fluxo (`src/shared/auth.ts`, mensagens, UI). **Não
 
 Card fica em **Backlog** (não Blocked) porque o código já está pronto e revisável — só falta a credencial para testar de ponta a ponta.
 
+**Nota (2026-11-22)**: o JSON baixado do Google Cloud Console no passo 1 (`client_secret_*.json`) é material de setup **descartável** depois que os passos 2 e 3 acima forem feitos — o código da extensão só lê `client_id` (via `.env`/`VITE_GOOGLE_CLIENT_ID`), nunca o `client_secret` (esse só é consumido pelo Supabase Dashboard, uma vez, na configuração do provider). Não faz sentido incorporar o secret ao `.env`: nada no bundle client-side precisa dele, e colar em `.env` sob o prefixo `VITE_` vazaria o secret pro bundle publicado. Se o arquivo for perdido, o Google Cloud Console permite visualizar/regerar o secret a qualquer momento (não é "revela uma vez só"). `client_secret_*.json` está no `.gitignore` por segurança, mas o arquivo em si não precisa ficar na raiz do projeto.
+
 ## Design técnico
 - `src/shared/auth.ts`: `signInWithGoogle()`, `signOut()`, `getAuthState()`, reaproveita `getSupabaseClient()`.
 - **Sem mensagens novas** — a UI chama essas funções diretamente (não via `routeMessage`), porque `launchWebAuthFlow` precisa do gesto/contexto do usuário na própria página, não faz sentido saltar pro background.

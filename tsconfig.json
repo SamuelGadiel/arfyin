@@ -16,5 +16,12 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests"],
+  // e2e roda via Playwright (seu proprio runner/transform), nao faz parte do
+  // escopo de `svelte-check`/`tsc` do projeto — mesmo comportamento de quando
+  // vivia fora de `tests/` (em `e2e/` na raiz, antes da reorganizacao). Fora
+  // disso precisaria de `@types/node` no `types` do compilerOptions acima,
+  // que vazaria globais de Node (process, Buffer...) pro resto do projeto
+  // (uma extensao de browser nunca deveria ter acesso a isso).
+  "exclude": ["tests/e2e"]
 }

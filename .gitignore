@@ -14,3 +14,7 @@ coverage/
 # Playwright e2e artifacts
 test-results/
 playwright-report/
+
+# Credencial baixada do Google Cloud Console (Client Secret em texto puro) —
+# nunca deve ser versionada. So o Client ID vai pro .env (nao e segredo).
+client_secret_*.json
