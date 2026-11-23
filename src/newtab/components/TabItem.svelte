@@ -166,9 +166,8 @@
     opacity: 1;
   }
   .quick-access-button.active {
-    /* Ja esta no acesso rapido — fica sempre visivel (nao so no hover) e
-       tingida, pra avisar o estado de relance sem precisar passar o mouse. */
-    opacity: 1;
+    /* So tinge de verde — visibilidade continua so-no-hover, igual ao
+       remove-button (pedido do usuario: nao deixar o raio sempre visivel). */
     color: #7fd1a3;
   }
 </style>
