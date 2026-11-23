@@ -30,15 +30,20 @@ function isLandscape(post: MinimalRedditPost): boolean {
 }
 
 /**
- * Extrai URLs de imagem de uma listagem do Reddit, ignorando NSFW, posts
- * que nao sao imagem direta (ex.: links externos, texto, video) e imagens em
- * retrato. Funcao pura — testavel sem fetch real.
+ * Extrai URLs de imagem de uma listagem do Reddit, ignorando NSFW e posts
+ * que nao sao imagem direta (ex.: links externos, texto, video). Prefere
+ * paisagem, mas NUNCA deixa o pool vazio por causa disso: bug real relatado
+ * ao vivo — o subreddit "anime" e quase todo arte de personagem em retrato,
+ * filtrar por paisagem ali zerava os 25 posts da listagem inteira e a tela
+ * ficava preta (nenhum candidato = `background-image: none`). Funcao pura —
+ * testavel sem fetch real.
  */
 export function extractImageUrls(posts: MinimalRedditPost[]): string[] {
-  return posts
-    .filter((post) => !post.data.over_18 && isLandscape(post))
-    .map((post) => post.data.url)
-    .filter((url): url is string => typeof url === "string" && IMAGE_EXTENSION.test(url));
+  const valid = posts.filter(
+    (post) => !post.data.over_18 && typeof post.data.url === "string" && IMAGE_EXTENSION.test(post.data.url),
+  );
+  const landscape = valid.filter(isLandscape);
+  return (landscape.length > 0 ? landscape : valid).map((post) => post.data.url as string);
 }
 
 export function pickRandom<T>(items: T[]): T | null {

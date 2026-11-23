@@ -19,7 +19,7 @@ describe("extractImageUrls", () => {
     expect(extractImageUrls([])).toEqual([]);
   });
 
-  it("descarta imagens em retrato (largura < altura), mantem paisagem e quadrada", () => {
+  it("quando ha paisagem/quadrada disponivel, descarta so as em retrato", () => {
     const posts = [
       { data: { url: "https://i.redd.it/landscape.jpg", preview: { images: [{ source: { width: 1600, height: 900 } }] } } },
       { data: { url: "https://i.redd.it/portrait.jpg", preview: { images: [{ source: { width: 900, height: 1600 } }] } } },
@@ -38,9 +38,21 @@ describe("extractImageUrls", () => {
 
   it("cai para thumbnail_width/height quando nao ha preview.images", () => {
     const posts = [
+      { data: { url: "https://i.redd.it/landscape-thumb.jpg", thumbnail_width: 210, thumbnail_height: 140 } },
       { data: { url: "https://i.redd.it/portrait-thumb.jpg", thumbnail_width: 140, thumbnail_height: 210 } },
     ];
-    expect(extractImageUrls(posts)).toEqual([]);
+    expect(extractImageUrls(posts)).toEqual(["https://i.redd.it/landscape-thumb.jpg"]);
+  });
+
+  it("quando TODOS os posts validos sao em retrato, nao fica vazio — cai para todos (bug real: r/anime inteiro em retrato mostrava tela preta)", () => {
+    const posts = [
+      { data: { url: "https://i.redd.it/portrait-1.jpg", preview: { images: [{ source: { width: 900, height: 1600 } }] } } },
+      { data: { url: "https://i.redd.it/portrait-2.jpg", preview: { images: [{ source: { width: 800, height: 1200 } }] } } },
+    ];
+    expect(extractImageUrls(posts)).toEqual([
+      "https://i.redd.it/portrait-1.jpg",
+      "https://i.redd.it/portrait-2.jpg",
+    ]);
   });
 });
 
