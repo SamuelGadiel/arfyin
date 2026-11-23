@@ -21,6 +21,7 @@ export const SEMANTIC_ICONS = {
   "square-check": "checkmark-square-02",
   add: "add-01",
   globe: "globe-02",
+  "quick-access": "flash",
 } satisfies Record<string, string>;
 
 export type SemanticIconName = keyof typeof SEMANTIC_ICONS;

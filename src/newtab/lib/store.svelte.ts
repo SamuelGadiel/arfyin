@@ -60,6 +60,33 @@ class ArfyinStore {
     this.config = res.config;
   }
 
+  isQuickAccess(url: string): boolean {
+    return this.config.quickAccess.some((i) => i.url === url);
+  }
+
+  /** Adiciona no primeiro slot livre (1-9); nao faz nada se ja estiver cheio ou a URL ja estiver la. Devolve se conseguiu. */
+  async addQuickAccess(title: string, url: string): Promise<boolean> {
+    if (this.isQuickAccess(url)) return false;
+    const usedSlots = new Set(this.config.quickAccess.map((i) => i.slot));
+    const nextSlot = Array.from({ length: 9 }, (_, i) => i + 1).find((s) => !usedSlots.has(s));
+    if (!nextSlot) return false;
+    await this.setQuickAccess([...this.config.quickAccess, { slot: nextSlot, title, url }]);
+    return true;
+  }
+
+  async removeQuickAccessByUrl(url: string): Promise<void> {
+    await this.setQuickAccess(this.config.quickAccess.filter((i) => i.url !== url));
+  }
+
+  /** Botao de "virar acesso rapido" em qualquer aba (viva ou salva): adiciona se ainda nao esta, remove se ja estava. */
+  async toggleQuickAccess(title: string, url: string): Promise<void> {
+    if (this.isQuickAccess(url)) {
+      await this.removeQuickAccessByUrl(url);
+    } else {
+      await this.addQuickAccess(title, url);
+    }
+  }
+
   async updateConfig(patch: Partial<AppConfig>): Promise<void> {
     const res = await send<"CONFIG_UPDATED">({ type: "UPDATE_CONFIG", patch });
     this.config = res.config;

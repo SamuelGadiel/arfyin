@@ -1,6 +1,5 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
-  import type { QuickAccessItem } from "@/shared/types";
   import Icon from "./Icon.svelte";
   import QuickAccessDialog from "./QuickAccessDialog.svelte";
 
@@ -15,11 +14,7 @@
   }
 
   function addItem(title: string, url: string) {
-    const usedSlots = new Set(store.config.quickAccess.map((i) => i.slot));
-    const nextSlot = Array.from({ length: 9 }, (_, i) => i + 1).find((s) => !usedSlots.has(s));
-    if (!nextSlot) return;
-    const next: QuickAccessItem = { slot: nextSlot, title, url };
-    store.setQuickAccess([...store.config.quickAccess, next]);
+    store.addQuickAccess(title, url);
   }
 
   function removeItem(slot: number) {

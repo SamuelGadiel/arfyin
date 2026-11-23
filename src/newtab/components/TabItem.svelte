@@ -33,6 +33,13 @@
     }
     doRemove();
   }
+
+  let isQuickAccess = $derived(store.isQuickAccess(tab.url));
+
+  function toggleQuickAccess(event: MouseEvent) {
+    event.stopPropagation();
+    store.toggleQuickAccess(tab.title, tab.url);
+  }
 </script>
 
 <div
@@ -50,6 +57,15 @@
     {/if}
     <span class="title">{tab.title}</span>
   </a>
+  <button
+    class="icon-button quick-access-button"
+    class:active={isQuickAccess}
+    onclick={toggleQuickAccess}
+    title={isQuickAccess ? "Remover do acesso rápido" : "Adicionar ao acesso rápido"}
+    aria-label={isQuickAccess ? "Remover do acesso rápido" : "Adicionar ao acesso rápido"}
+  >
+    <Icon name="quick-access" size={14} />
+  </button>
   <button class="icon-button remove-button" onclick={remove} title="Remover" aria-label="Remover aba">
     <Icon name="x" size={14} />
   </button>
@@ -120,5 +136,21 @@
   }
   .remove-button:hover {
     opacity: 1;
+  }
+  .quick-access-button {
+    opacity: 0;
+  }
+  .tab-item:hover .quick-access-button,
+  .quick-access-button:focus-visible {
+    opacity: 0.5;
+  }
+  .quick-access-button:hover {
+    opacity: 1;
+  }
+  .quick-access-button.active {
+    /* Ja esta no acesso rapido — fica sempre visivel (nao so no hover) e
+       tingida, pra avisar o estado de relance sem precisar passar o mouse. */
+    opacity: 1;
+    color: #7fd1a3;
   }
 </style>
