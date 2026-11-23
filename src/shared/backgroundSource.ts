@@ -7,6 +7,9 @@ export interface MinimalRedditPost {
     preview?: { images?: Array<{ source?: { width?: number; height?: number } }> };
     thumbnail_width?: number;
     thumbnail_height?: number;
+    author?: string;
+    subreddit?: string;
+    permalink?: string;
   };
 }
 
@@ -30,38 +33,65 @@ function isLandscape(post: MinimalRedditPost): boolean {
 }
 
 /**
- * Extrai URLs de imagem de uma listagem do Reddit, ignorando NSFW e posts
- * que nao sao imagem direta (ex.: links externos, texto, video). Prefere
- * paisagem, mas NUNCA deixa o pool vazio por causa disso: bug real relatado
- * ao vivo — o subreddit "anime" e quase todo arte de personagem em retrato,
- * filtrar por paisagem ali zerava os 25 posts da listagem inteira e a tela
- * ficava preta (nenhum candidato = `background-image: none`). Funcao pura —
- * testavel sem fetch real.
+ * Credito de uma imagem de background — quem postou/fotografou e pra onde
+ * levar o clique (pedido do usuario: credito do Reddit igual ao que ja
+ * existia pro Unsplash, com link de verdade pro post original).
  */
-export function extractImageUrls(posts: MinimalRedditPost[]): string[] {
+export interface BackgroundAttribution {
+  kind: "unsplash" | "reddit";
+  /** "Nome Sobrenome" (Unsplash) ou "u/username" (Reddit). */
+  authorName: string;
+  /** Unsplash: perfil do fotografo. Reddit: o POST original (pedido explicito do usuario — "ir lá pro post"). */
+  authorUrl: string;
+  /** "Unsplash" ou "r/{subreddit}". */
+  sourceName: string;
+  /** Unsplash: unsplash.com com UTM. Reddit: a home do subreddit. */
+  sourceUrl: string;
+  /** So Unsplash: URL a chamar (GET) quando a foto for efetivamente usada — guideline da API. */
+  downloadLocation?: string;
+}
+
+/** Candidato de background com atribuicao opcional (Unsplash/Reddit tem; local nao tem). */
+export interface BackgroundCandidate {
+  url: string;
+  attribution?: BackgroundAttribution;
+}
+
+/**
+ * Extrai candidatos de imagem de uma listagem do Reddit, ignorando NSFW e
+ * posts que nao sao imagem direta (ex.: links externos, texto, video).
+ * Prefere paisagem, mas NUNCA deixa o pool vazio por causa disso: bug real
+ * relatado ao vivo — o subreddit "anime" e quase todo arte de personagem em
+ * retrato, filtrar por paisagem ali zerava os 25 posts da listagem inteira e
+ * a tela ficava preta (nenhum candidato = `background-image: none`). Credito
+ * (autor + link pro post) incluido quando o post tem `author`/`permalink` —
+ * pedido do usuario, mesmo conceito que ja existia pro Unsplash. Funcao
+ * pura — testavel sem fetch real.
+ */
+export function extractImageUrls(posts: MinimalRedditPost[]): BackgroundCandidate[] {
   const valid = posts.filter(
     (post) => !post.data.over_18 && typeof post.data.url === "string" && IMAGE_EXTENSION.test(post.data.url),
   );
   const landscape = valid.filter(isLandscape);
-  return (landscape.length > 0 ? landscape : valid).map((post) => post.data.url as string);
+  return (landscape.length > 0 ? landscape : valid).map((post) => {
+    const { url, author, subreddit, permalink } = post.data;
+    const attribution: BackgroundAttribution | undefined =
+      author && permalink
+        ? {
+            kind: "reddit",
+            authorName: `u/${author}`,
+            authorUrl: `https://www.reddit.com${permalink}`,
+            sourceName: subreddit ? `r/${subreddit}` : "Reddit",
+            sourceUrl: subreddit ? `https://www.reddit.com/r/${subreddit}` : "https://www.reddit.com",
+          }
+        : undefined;
+    return { url: url as string, attribution };
+  });
 }
 
 export function pickRandom<T>(items: T[]): T | null {
   if (items.length === 0) return null;
   return items[Math.floor(Math.random() * items.length)] ?? null;
-}
-
-/** Candidato de background com atribuicao opcional (Unsplash exige; reddit/local nao tem). */
-export interface BackgroundCandidate {
-  url: string;
-  attribution?: {
-    photographerName: string;
-    photographerUrl: string;
-    /** Link genérico para unsplash.com (com UTM), conforme formato oficial de atribuição. */
-    unsplashUrl: string;
-    /** URL a chamar (GET) quando a foto for efetivamente usada — guideline da Unsplash API. */
-    downloadLocation: string;
-  };
 }
 
 /** Forma minima de uma foto retornada por `api.unsplash.com/photos/random`. */
@@ -91,9 +121,11 @@ export function extractUnsplashCandidates(photos: MinimalUnsplashPhoto[]): Backg
     .map((p) => ({
       url: p.urls.regular as string,
       attribution: {
-        photographerName: p.user.name ?? "Unsplash",
-        photographerUrl: withUnsplashUtm(p.user.links?.html ?? "https://unsplash.com"),
-        unsplashUrl: withUnsplashUtm("https://unsplash.com/"),
+        kind: "unsplash",
+        authorName: p.user.name ?? "Unsplash",
+        authorUrl: withUnsplashUtm(p.user.links?.html ?? "https://unsplash.com"),
+        sourceName: "Unsplash",
+        sourceUrl: withUnsplashUtm("https://unsplash.com/"),
         downloadLocation: p.links.download_location as string,
       },
     }));

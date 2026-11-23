@@ -83,7 +83,7 @@ async function fetchFreshCandidates(spec: BgSpec): Promise<BackgroundCandidate[]
           const res = await fetch(`https://www.reddit.com/r/${subreddit}/top.json?limit=25&t=week`);
           const json = await res.json();
           const posts = (json?.data?.children ?? []) as MinimalRedditPost[];
-          return extractImageUrls(posts).map((url) => ({ url }));
+          return extractImageUrls(posts);
         } catch {
           return [];
         }

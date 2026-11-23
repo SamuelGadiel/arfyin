@@ -85,9 +85,15 @@
 <div class="darken-overlay" style:background-color={zen ? "transparent" : `rgba(0,0,0,${bg.darken})`}></div>
 
 {#if !zen && backgroundState.current?.attribution}
+  {@const attribution = backgroundState.current.attribution}
   <div class="attribution">
-    Photo by <a href={backgroundState.current.attribution.photographerUrl} target="_blank" rel="noopener noreferrer">{backgroundState.current.attribution.photographerName}</a>
-    on <a href={backgroundState.current.attribution.unsplashUrl} target="_blank" rel="noopener noreferrer">Unsplash</a>
+    {#if attribution.kind === "unsplash"}
+      Photo by <a href={attribution.authorUrl} target="_blank" rel="noopener noreferrer">{attribution.authorName}</a>
+      on <a href={attribution.sourceUrl} target="_blank" rel="noopener noreferrer">{attribution.sourceName}</a>
+    {:else}
+      Postado por <a href={attribution.authorUrl} target="_blank" rel="noopener noreferrer">{attribution.authorName}</a>
+      em <a href={attribution.sourceUrl} target="_blank" rel="noopener noreferrer">{attribution.sourceName}</a>
+    {/if}
   </div>
 {/if}
 

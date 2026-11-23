@@ -10,8 +10,8 @@ describe("extractImageUrls", () => {
       { data: { url: "https://i.redd.it/nsfw.jpg", over_18: true } },
     ];
     expect(extractImageUrls(posts)).toEqual([
-      "https://i.redd.it/foo.jpg",
-      "https://i.redd.it/bar.png",
+      { url: "https://i.redd.it/foo.jpg", attribution: undefined },
+      { url: "https://i.redd.it/bar.png", attribution: undefined },
     ]);
   });
 
@@ -25,7 +25,7 @@ describe("extractImageUrls", () => {
       { data: { url: "https://i.redd.it/portrait.jpg", preview: { images: [{ source: { width: 900, height: 1600 } }] } } },
       { data: { url: "https://i.redd.it/square.jpg", preview: { images: [{ source: { width: 1000, height: 1000 } }] } } },
     ];
-    expect(extractImageUrls(posts)).toEqual([
+    expect(extractImageUrls(posts).map((c) => c.url)).toEqual([
       "https://i.redd.it/landscape.jpg",
       "https://i.redd.it/square.jpg",
     ]);
@@ -33,7 +33,7 @@ describe("extractImageUrls", () => {
 
   it("sem nenhuma dimensao disponivel, mantem o post (nao esvazia o pool por falta de metadado)", () => {
     const posts = [{ data: { url: "https://i.redd.it/sem-dados.jpg" } }];
-    expect(extractImageUrls(posts)).toEqual(["https://i.redd.it/sem-dados.jpg"]);
+    expect(extractImageUrls(posts).map((c) => c.url)).toEqual(["https://i.redd.it/sem-dados.jpg"]);
   });
 
   it("cai para thumbnail_width/height quando nao ha preview.images", () => {
@@ -41,7 +41,7 @@ describe("extractImageUrls", () => {
       { data: { url: "https://i.redd.it/landscape-thumb.jpg", thumbnail_width: 210, thumbnail_height: 140 } },
       { data: { url: "https://i.redd.it/portrait-thumb.jpg", thumbnail_width: 140, thumbnail_height: 210 } },
     ];
-    expect(extractImageUrls(posts)).toEqual(["https://i.redd.it/landscape-thumb.jpg"]);
+    expect(extractImageUrls(posts).map((c) => c.url)).toEqual(["https://i.redd.it/landscape-thumb.jpg"]);
   });
 
   it("quando TODOS os posts validos sao em retrato, nao fica vazio — cai para todos (bug real: r/anime inteiro em retrato mostrava tela preta)", () => {
@@ -49,10 +49,40 @@ describe("extractImageUrls", () => {
       { data: { url: "https://i.redd.it/portrait-1.jpg", preview: { images: [{ source: { width: 900, height: 1600 } }] } } },
       { data: { url: "https://i.redd.it/portrait-2.jpg", preview: { images: [{ source: { width: 800, height: 1200 } }] } } },
     ];
-    expect(extractImageUrls(posts)).toEqual([
+    expect(extractImageUrls(posts).map((c) => c.url)).toEqual([
       "https://i.redd.it/portrait-1.jpg",
       "https://i.redd.it/portrait-2.jpg",
     ]);
+  });
+
+  it("inclui credito (autor + link pro post) quando o post tem author/permalink", () => {
+    const posts = [
+      {
+        data: {
+          url: "https://i.redd.it/foo.jpg",
+          author: "WFAlex",
+          subreddit: "anime",
+          permalink: "/r/anime/comments/abc123/titulo_do_post/",
+        },
+      },
+    ];
+    expect(extractImageUrls(posts)).toEqual([
+      {
+        url: "https://i.redd.it/foo.jpg",
+        attribution: {
+          kind: "reddit",
+          authorName: "u/WFAlex",
+          authorUrl: "https://www.reddit.com/r/anime/comments/abc123/titulo_do_post/",
+          sourceName: "r/anime",
+          sourceUrl: "https://www.reddit.com/r/anime",
+        },
+      },
+    ]);
+  });
+
+  it("sem author/permalink, nao inclui atribuicao (sem credito incompleto/quebrado)", () => {
+    const posts = [{ data: { url: "https://i.redd.it/foo.jpg", subreddit: "anime" } }];
+    expect(extractImageUrls(posts)).toEqual([{ url: "https://i.redd.it/foo.jpg", attribution: undefined }]);
   });
 });
 
@@ -81,9 +111,11 @@ describe("extractUnsplashCandidates", () => {
       {
         url: "https://images.unsplash.com/photo-1.jpg",
         attribution: {
-          photographerName: "Annie Spratt",
-          photographerUrl: "https://unsplash.com/@anniespratt?utm_source=arfyin&utm_medium=referral",
-          unsplashUrl: "https://unsplash.com/?utm_source=arfyin&utm_medium=referral",
+          kind: "unsplash",
+          authorName: "Annie Spratt",
+          authorUrl: "https://unsplash.com/@anniespratt?utm_source=arfyin&utm_medium=referral",
+          sourceName: "Unsplash",
+          sourceUrl: "https://unsplash.com/?utm_source=arfyin&utm_medium=referral",
           downloadLocation: "https://api.unsplash.com/photos/1/download",
         },
       },
