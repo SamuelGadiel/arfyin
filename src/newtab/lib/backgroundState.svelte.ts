@@ -15,6 +15,16 @@ import type { BackgroundRotationMode, BackgroundSourceKind } from "@/shared/type
 // PROXIMA aba, sem trocar a imagem desta aba no meio da sessao.
 const CACHE_TTL_MS = 60 * 60_000;
 
+async function fetchUnsplashRandom(topic: string, accessKey: string, landscapeOnly: boolean) {
+  const orientationParam = landscapeOnly ? "&orientation=landscape" : "";
+  const res = await fetch(
+    `https://api.unsplash.com/photos/random?query=${encodeURIComponent(topic)}&count=10${orientationParam}`,
+    { headers: { Authorization: `Client-ID ${accessKey}` } },
+  );
+  const photos = (await res.json()) as MinimalUnsplashPhoto[];
+  return extractUnsplashCandidates(Array.isArray(photos) ? photos : []);
+}
+
 interface BgSpec {
   source: BackgroundSourceKind;
   subreddits: string[];
@@ -89,13 +99,13 @@ async function fetchFreshCandidates(spec: BgSpec): Promise<BackgroundCandidate[]
         try {
           // `orientation=landscape` e parametro oficial da API (evita papel de
           // parede em retrato cortando muito ao esticar pra tela cheia — mesmo
-          // ajuste feito no lado do reddit em backgroundSource.ts).
-          const res = await fetch(
-            `https://api.unsplash.com/photos/random?query=${encodeURIComponent(topic)}&count=10&orientation=landscape`,
-            { headers: { Authorization: `Client-ID ${accessKey}` } },
-          );
-          const photos = (await res.json()) as MinimalUnsplashPhoto[];
-          return extractUnsplashCandidates(Array.isArray(photos) ? photos : []);
+          // ajuste feito no lado do reddit em backgroundSource.ts). Mesma
+          // rede de seguranca do lado do reddit: se o topico nao tiver NENHUM
+          // resultado em paisagem (raro, mas possivel pra topicos bem
+          // especificos), refaz sem o parametro em vez de deixar o pool vazio.
+          const landscapeOnly = await fetchUnsplashRandom(topic, accessKey, true);
+          if (landscapeOnly.length > 0) return landscapeOnly;
+          return await fetchUnsplashRandom(topic, accessKey, false);
         } catch {
           return [];
         }
@@ -138,6 +148,9 @@ class BackgroundState {
   // nem resortear nada, so reaplicar a escolha de indice.
   private loadSeq = 0;
   private lastSpecKey: string | null = null;
+  // URLs ja mandadas pro browser pre-carregar (ver preloadNeighbors) — evita
+  // recriar um `Image()` pra uma URL que ja esta no cache HTTP do browser.
+  private preloadedUrls = new Set<string>();
 
   async loadCandidates(key: string): Promise<void> {
     const spec = parseBgSpec(key);
@@ -206,6 +219,29 @@ class BackgroundState {
 
     this.lastSpecKey = specKey;
     this.applyIndex(spec);
+    this.preloadNeighbors();
+  }
+
+  /**
+   * Pre-carrega a imagem atual + as proximas (e a anterior) no cache HTTP do
+   * browser, chamando `next()`/`prev()` e dar a sensacao de instantaneo em
+   * vez de mostrar a tela escurecida ate a imagem nova baixar. So cria um
+   * `Image()` por URL uma unica vez (ver `preloadedUrls`) — util mesmo para a
+   * fonte "local" (object URL de blob, ja em memoria): o custo e desprezivel
+   * e evita ter que distinguir o caso aqui.
+   */
+  preloadNeighbors(aheadCount = 3): void {
+    const n = this.candidates.length;
+    if (n === 0) return;
+    const offsets = [0, 1, 2, 3, -1].slice(0, Math.min(aheadCount + 2, n));
+    for (const offset of offsets) {
+      const idx = (((this.currentIndex + offset) % n) + n) % n;
+      const url = this.candidates[idx]?.url;
+      if (!url || this.preloadedUrls.has(url)) continue;
+      this.preloadedUrls.add(url);
+      const img = new Image();
+      img.src = url;
+    }
   }
 
   /** Reaplica a escolha de indice sem rebuscar nada — usado pelo timer do modo "timed". */
@@ -248,11 +284,13 @@ class BackgroundState {
   next(): void {
     if (this.candidates.length === 0) return;
     this.currentIndex = (this.currentIndex + 1) % this.candidates.length;
+    this.preloadNeighbors();
   }
 
   prev(): void {
     if (this.candidates.length === 0) return;
     this.currentIndex = (this.currentIndex - 1 + this.candidates.length) % this.candidates.length;
+    this.preloadNeighbors();
   }
 
   /** Trava o candidato atualmente exibido: toda nova aba passa a mostrar so ele. */
