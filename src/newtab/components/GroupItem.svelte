@@ -145,6 +145,7 @@
   ondrop={handleDrop}
   role="group"
   aria-label={group.name}
+  title="Arraste uma aba aqui para salvá-la. Segure Option (⌥) ao soltar para fechar a aba original."
 >
   <header class="group-header">
     <button

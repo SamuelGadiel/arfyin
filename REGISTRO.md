@@ -316,3 +316,11 @@ Pedido explícito do usuário: trazer para o arfyin todos os grupos salvos nas 3
 Todo o processamento intermediário (dumps em JSON das 3 extensões) ficou num diretório temporário fora do controle de versão (`.migration_tmp/`, listado só em `.git/info/exclude`, nunca staged) e foi apagado do disco assim que a importação foi validada — nenhum dado pessoal do usuário (títulos/URLs de abas salvas) chegou a ser commitado no repositório.
 
 Sem mudança de código nesta rodada — é um evento de dados em produção, registrado aqui pela mesma prática de documentar tudo que é feito no projeto.
+
+## 2026-11-23 (continuação) — diagnóstico: "fechar aba ao arrastar pra grupo" não funcionava com Cmd
+
+Usuário relatou não conseguir fazer o atalho de "arrastar uma aba viva pra um grupo e fechar a original ao mesmo tempo" funcionar, usando Command (⌘). Investigação em `GroupItem.svelte:82`/`UngroupedSection.svelte:47` confirmou que o código sempre checou `event.altKey` (tecla **Option**, não Command) — por design, nunca foi `metaKey`/`ctrlKey`. Validado ao vivo que a lógica funciona de verdade quando a tecla certa é usada: criada uma aba de teste real, simulado o gesto de drag-and-drop com `altKey: true` no evento de `drop` via `dispatchEvent`, confirmado que a aba foi movida pro grupo **e** a aba original fechada (`chrome.tabs.query` confirmou 0 abas abertas com aquela URL depois do drop). Dado de teste removido ao final.
+
+**Causa raiz real do problema do usuário não era um bug — era falta de affordance**: nenhum lugar da UI jamais mencionou qual tecla usar (nem tooltip, nem texto), então não havia como ele adivinhar que era Option e não Command (a escolha mais "intuitiva" num Mac, por analogia com outros apps). Corrigido adicionando a dica diretamente nos locais onde o drop acontece: `title` no `<section class="group">` (`GroupItem.svelte`, `UngroupedSection.svelte`) e no heading arrastável de `LiveWindowSection.svelte`, todos agora explicando "Segure Option (⌥) ao soltar para fechar a aba/janela original."
+
+Testes: 89 passando (mudança é só atributo `title`, sem lógica nova). `npx svelte-check --threshold error`: 0 erros. Build limpo. Validado ao vivo: `getComputedStyle`/`getAttribute('title')` confirmam o novo texto no grupo real.

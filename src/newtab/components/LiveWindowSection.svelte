@@ -60,7 +60,7 @@
       class="name"
       draggable="true"
       ondragstart={handleDragStart}
-      title="Arraste para salvar a janela inteira num grupo"
+      title="Arraste para salvar a janela inteira num grupo. Segure Option (⌥) ao soltar para fechar a janela original."
     >
       Janela {index + 1}
     </h3>
