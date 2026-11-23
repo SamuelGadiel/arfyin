@@ -143,8 +143,12 @@
     margin-bottom: 12px;
   }
   .group.drag-over {
-    outline: 1px dashed rgba(255, 255, 255, 0.4);
-    outline-offset: -1px;
+    /* Relatado como discreto demais — contorno mais grosso/opaco + um tingimento
+       leve do fundo (box-shadow inset em vez de `background`, que já é usado
+       pelo `style:background` inline do container e seria sobrescrito). */
+    outline: 2px dashed rgba(234, 234, 234, 0.9);
+    outline-offset: -2px;
+    box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0.06);
   }
   .group-header {
     display: flex;
