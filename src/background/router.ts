@@ -3,15 +3,16 @@ import {
   addAsset,
   addTabToGroup,
   createGroup,
+  deleteAllUngroupedTabs,
   deleteAsset,
   deleteGroup,
-  exportAllData,
-  exportConfig,
+  exportBackupBundle,
   getAppConfig,
   getAsset,
+  getBackgroundCache,
   getTabById,
-  importConfigExport,
-  importDataExport,
+  importBackupBundle,
+  listAllTabsGrouped,
   listGroups,
   listTabsByGroup,
   listUngroupedTabs,
@@ -21,20 +22,22 @@ import {
   reorderGroup,
   reorderTab,
   setAppConfig,
+  setBackgroundCache,
   setGroupCollapsed,
-  setTabPinned,
   updateGroupAppearance,
 } from "@/shared/storage";
 import { buildPong, isArfyinMessage, type ArfyinMessage, type ArfyinResponse } from "@/shared/messaging";
 import { getCurrentUserId, getRemoteDb } from "@/shared/supabaseClient";
 import {
   drainQueue,
+  enqueueConfigUpsert,
   enqueueGroupDelete,
   enqueueGroupUpsert,
   enqueueGroupsUpsert,
   enqueueTabDelete,
   enqueueTabUpsert,
   enqueueTabsUpsert,
+  fullSync,
   getSyncStatus,
 } from "@/shared/sync";
 
@@ -56,11 +59,23 @@ export function kickSync(db: ArfyinDb): void {
       if (!userId) return;
       return drainQueue(db, getRemoteDb(), userId).then(() => undefined);
     })
-    .catch(() => {
+    .catch((err) => {
       // getRemoteDb()/getCurrentUserId() lancam se o .env nao estiver configurado
-      // (ambiente de teste/dev sem Supabase) — silencioso de proposito, a fila
-      // continua intacta e tenta de novo na proxima mutacao.
+      // (ambiente de teste/dev sem Supabase) — nao deve quebrar a mutacao local,
+      // mas precisa ficar visivel (senao mascara regressoes futuras reais).
+      console.error("[arfyin] kickSync falhou:", err instanceof Error ? err.message : err);
     });
+}
+
+/**
+ * Pull-and-merge do Supabase + drenagem da fila local. Chamado uma vez apos
+ * login bem-sucedido (restaura dados salvos em outra maquina) e no alarme
+ * periodico do background (converge mudancas feitas em outro dispositivo).
+ */
+export async function bootstrapSync(db: ArfyinDb): Promise<void> {
+  const userId = await getCurrentUserId().catch(() => null);
+  if (!userId) return;
+  await fullSync(db, getRemoteDb(), userId);
 }
 
 /**
@@ -84,10 +99,10 @@ export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promis
     case "RENAME_GROUP": {
       await renameGroup(db, message.id, message.name);
       const groups = await listGroups(db);
-      const renamed = groups.find((g) => g.id === message.id);
+      const renamed = groups.find((g) => g.id === message.id) ?? null;
       if (renamed) await enqueueGroupUpsert(db, renamed);
       kickSync(db);
-      return { type: "GROUP_RENAMED" };
+      return { type: "GROUP_RENAMED", group: renamed };
     }
     case "DELETE_GROUP": {
       await deleteGroup(db, message.id);
@@ -99,86 +114,125 @@ export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promis
       return { type: "TABS", tabs: await listTabsByGroup(db, message.groupId) };
     case "LIST_UNGROUPED_TABS":
       return { type: "TABS", tabs: await listUngroupedTabs(db) };
+    case "LIST_ALL_TABS": {
+      const { tabsByGroup, ungrouped } = await listAllTabsGrouped(db);
+      return { type: "ALL_TABS", tabsByGroup, ungrouped };
+    }
     case "ADD_TAB": {
       const tab = await addTabToGroup(db, message.input);
       await enqueueTabUpsert(db, tab);
       kickSync(db);
-      return { type: "TAB_ADDED", tab };
+      return { type: "TAB_ADDED", tab, tabs: await listTabsByGroup(db, tab.groupId) };
     }
     case "REMOVE_TAB": {
+      const before = await findTabAnywhere(db, message.id);
       await removeTab(db, message.id);
       await enqueueTabDelete(db, message.id);
       kickSync(db);
-      return { type: "TAB_REMOVED" };
+      const groupId = before?.groupId ?? null;
+      return { type: "TAB_REMOVED", groupId, tabs: await listTabsByGroup(db, groupId) };
     }
     case "GET_SYNC_STATUS":
       return { type: "SYNC_STATUS", status: await getSyncStatus(db) };
     case "SET_GROUP_COLLAPSED": {
       await setGroupCollapsed(db, message.id, message.collapsed);
-      const group = await findGroup(db, message.id);
+      const group = (await findGroup(db, message.id)) ?? null;
       if (group) await enqueueGroupUpsert(db, group);
       kickSync(db);
-      return { type: "GROUP_COLLAPSED_SET" };
+      return { type: "GROUP_COLLAPSED_SET", group };
     }
     case "UPDATE_GROUP_APPEARANCE": {
       await updateGroupAppearance(db, message.id, { color: message.color, icon: message.icon });
-      const group = await findGroup(db, message.id);
+      const group = (await findGroup(db, message.id)) ?? null;
       if (group) await enqueueGroupUpsert(db, group);
       kickSync(db);
-      return { type: "GROUP_APPEARANCE_UPDATED" };
+      return { type: "GROUP_APPEARANCE_UPDATED", group };
     }
     case "REORDER_GROUP": {
       await reorderGroup(db, message.id, message.newIndex);
-      await enqueueGroupsUpsert(db, await listGroups(db));
+      const groups = await listGroups(db);
+      await enqueueGroupsUpsert(db, groups);
       kickSync(db);
-      return { type: "GROUP_REORDERED" };
-    }
-    case "SET_TAB_PINNED": {
-      await setTabPinned(db, message.id, message.pinned);
-      const tab = await findTabAnywhere(db, message.id);
-      if (tab) await enqueueTabUpsert(db, tab);
-      kickSync(db);
-      return { type: "TAB_PINNED_SET" };
+      return { type: "GROUP_REORDERED", groups };
     }
     case "REORDER_TAB": {
       const tab = await findTabAnywhere(db, message.id);
       await reorderTab(db, message.id, message.newIndex);
-      if (tab) await enqueueTabsUpsert(db, await listTabsByGroup(db, tab.groupId));
+      const groupId = tab?.groupId ?? null;
+      const tabs = await listTabsByGroup(db, groupId);
+      if (tab) await enqueueTabsUpsert(db, tabs);
       kickSync(db);
-      return { type: "TAB_REORDERED" };
+      return { type: "TAB_REORDERED", groupId, tabs };
     }
     case "MOVE_TAB": {
       const before = await findTabAnywhere(db, message.id);
       await moveTab(db, message.id, message.newGroupId, message.newIndex);
-      if (before) {
-        await enqueueTabsUpsert(db, await listTabsByGroup(db, before.groupId));
-      }
-      await enqueueTabsUpsert(db, await listTabsByGroup(db, message.newGroupId));
+      const sourceGroupId = before?.groupId ?? null;
+      const [sourceTabs, destTabs] = await Promise.all([
+        listTabsByGroup(db, sourceGroupId),
+        listTabsByGroup(db, message.newGroupId),
+      ]);
+      if (before) await enqueueTabsUpsert(db, sourceTabs);
+      await enqueueTabsUpsert(db, destTabs);
       kickSync(db);
-      return { type: "TAB_MOVED" };
+      return {
+        type: "TAB_MOVED",
+        sourceGroupId,
+        sourceTabs,
+        destGroupId: message.newGroupId,
+        destTabs,
+      };
     }
     case "GET_CONFIG":
       return { type: "CONFIG", config: await getAppConfig(db) };
     case "SET_QUICK_ACCESS": {
       const config = await getAppConfig(db);
       await setAppConfig(db, { ...config, quickAccess: message.quickAccess });
-      return { type: "QUICK_ACCESS_SET" };
+      const updated = await getAppConfig(db);
+      await enqueueConfigUpsert(db, updated);
+      kickSync(db);
+      return { type: "QUICK_ACCESS_SET", config: updated };
     }
     case "UPDATE_CONFIG": {
       const config = await getAppConfig(db);
       await setAppConfig(db, { ...config, ...message.patch });
-      return { type: "CONFIG_UPDATED" };
+      const updated = await getAppConfig(db);
+      await enqueueConfigUpsert(db, updated);
+      kickSync(db);
+      return { type: "CONFIG_UPDATED", config: updated };
     }
-    case "EXPORT_DATA":
-      return { type: "DATA_EXPORTED", data: await exportAllData(db) };
-    case "IMPORT_DATA":
-      await importDataExport(db, message.data);
-      return { type: "DATA_IMPORTED" };
-    case "EXPORT_CONFIG":
-      return { type: "CONFIG_EXPORTED", data: await exportConfig(db) };
-    case "IMPORT_CONFIG":
-      await importConfigExport(db, message.data);
-      return { type: "CONFIG_IMPORTED" };
+    case "SET_UNGROUPED_ENABLED": {
+      if (!message.enabled) {
+        const toDelete = await listUngroupedTabs(db);
+        await deleteAllUngroupedTabs(db);
+        for (const tab of toDelete) await enqueueTabDelete(db, tab.id);
+      }
+      const config = await getAppConfig(db);
+      await setAppConfig(db, { ...config, ungroupedEnabled: message.enabled });
+      const updated = await getAppConfig(db);
+      await enqueueConfigUpsert(db, updated);
+      kickSync(db);
+      return { type: "UNGROUPED_ENABLED_SET", config: updated, ungrouped: await listUngroupedTabs(db) };
+    }
+    case "EXPORT_BACKUP":
+      return { type: "BACKUP_EXPORTED", data: await exportBackupBundle(db) };
+    case "IMPORT_BACKUP": {
+      await importBackupBundle(db, message.data);
+      // Sem isto, os dados duplicados (import e sempre duplicar, nunca
+      // substituir) ficavam so locais ate o usuario tocar manualmente em cada
+      // item — violava a garantia de "nunca perder dado" para o caso de uso
+      // central de backup/restore. Config tambem precisa subir (substitui a
+      // anterior, ver `importBackupBundle`).
+      const groups = await listGroups(db);
+      await enqueueGroupsUpsert(db, groups);
+      for (const group of groups) {
+        await enqueueTabsUpsert(db, await listTabsByGroup(db, group.id));
+      }
+      await enqueueTabsUpsert(db, await listUngroupedTabs(db));
+      await enqueueConfigUpsert(db, await getAppConfig(db));
+      kickSync(db);
+      return { type: "BACKUP_IMPORTED" };
+    }
     case "ADD_ASSET":
       return { type: "ASSET_ADDED", id: await addAsset(db, message.blob) };
     case "GET_ASSET":
@@ -186,6 +240,14 @@ export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promis
     case "DELETE_ASSET":
       await deleteAsset(db, message.id);
       return { type: "ASSET_DELETED" };
+    case "GET_BACKGROUND_CACHE":
+      return { type: "BACKGROUND_CACHE", entry: await getBackgroundCache(db, message.key) };
+    case "SET_BACKGROUND_CACHE":
+      await setBackgroundCache(db, message.key, message.entry);
+      return { type: "BACKGROUND_CACHE_SET" };
+    case "BOOTSTRAP_SYNC":
+      await bootstrapSync(db);
+      return { type: "BOOTSTRAP_SYNC_DONE" };
   }
 }
 

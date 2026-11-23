@@ -1,20 +1,22 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
   import type { QuickAccessItem } from "@/shared/types";
+  import Icon from "./Icon.svelte";
+  import QuickAccessDialog from "./QuickAccessDialog.svelte";
 
   let items = $derived([...store.config.quickAccess].sort((a, b) => a.slot - b.slot));
+  let displayMode = $derived(store.config.quickAccessDisplayMode);
+  let showSlot = $derived(store.config.quickAccessShowSlot);
+  let showDialog = $state(false);
 
-  function addItem() {
+  function faviconUrl(url: string): string {
+    return `https://www.google.com/s2/favicons?sz=32&domain_url=${encodeURIComponent(url)}`;
+  }
+
+  function addItem(title: string, url: string) {
     const usedSlots = new Set(store.config.quickAccess.map((i) => i.slot));
     const nextSlot = Array.from({ length: 9 }, (_, i) => i + 1).find((s) => !usedSlots.has(s));
-    if (!nextSlot) {
-      alert("Todos os 9 slots de acesso rápido já estão em uso.");
-      return;
-    }
-    const title = prompt("Nome do atalho:");
-    if (!title) return;
-    const url = prompt("URL:");
-    if (!url) return;
+    if (!nextSlot) return;
     const next: QuickAccessItem = { slot: nextSlot, title, url };
     store.setQuickAccess([...store.config.quickAccess, next]);
   }
@@ -26,16 +28,31 @@
 
 <div class="quick-access">
   {#each items as item (item.slot)}
-    <div class="item">
-      <span class="slot">{item.slot}</span>
-      <a href={item.url}>{item.title}</a>
-      <button class="remove" onclick={() => removeItem(item.slot)} title="Remover">✕</button>
+    <div class="item" class:column={displayMode === "icon-text"}>
+      {#if showSlot}<span class="slot">{item.slot}</span>{/if}
+      <a href={item.url} class="link" class:column={displayMode === "icon-text"} title={item.title}>
+        {#if displayMode !== "text"}
+          <img src={faviconUrl(item.url)} alt="" class="favicon" />
+        {/if}
+        {#if displayMode !== "icon"}
+          <span class="title">{item.title}</span>
+        {/if}
+      </a>
+      <button class="remove" onclick={() => removeItem(item.slot)} title="Remover" aria-label="Remover acesso rápido">
+        <Icon name="x" size={12} />
+      </button>
     </div>
   {/each}
   {#if store.config.quickAccess.length < 9}
-    <button class="add" onclick={addItem}>+ acesso rápido</button>
+    <button class="add" onclick={() => (showDialog = true)}>
+      <Icon name="add" size={12} /> acesso rápido
+    </button>
   {/if}
 </div>
+
+{#if showDialog}
+  <QuickAccessDialog onSave={addItem} onClose={() => (showDialog = false)} />
+{/if}
 
 <style>
   .quick-access {
@@ -46,6 +63,7 @@
     margin: 8px 0 16px;
   }
   .item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -54,13 +72,46 @@
     padding: 4px 8px;
     font-size: 12px;
   }
-  .item a {
+  .item.column {
+    flex-direction: column;
+    padding: 8px 10px;
+  }
+  .link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     color: inherit;
     text-decoration: none;
+    min-width: 0;
+  }
+  .link.column {
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+  .favicon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .slot {
-    opacity: 0.5;
-    font-size: 10px;
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    font-size: 9px;
   }
   .remove,
   .add {
@@ -70,6 +121,24 @@
     opacity: 0.5;
     cursor: pointer;
     font-size: 12px;
+  }
+  .add {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .remove {
+    display: flex;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    padding: 2px;
+    opacity: 0;
+  }
+  .item:hover .remove {
+    opacity: 0.8;
   }
   .remove:hover,
   .add:hover {

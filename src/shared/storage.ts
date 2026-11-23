@@ -2,12 +2,14 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import {
   defaultAppConfig,
   type AppConfig,
+  type BackupBundle,
   type ConfigExport,
   type DataExport,
   type Group,
   type NewSavedTabInput,
   type SavedTab,
 } from "./types";
+import type { BackgroundCandidate } from "./backgroundSource";
 
 /**
  * IndexedDB não aceita `null` como chave de índice válida. Internamente guardamos
@@ -28,10 +30,10 @@ function fromStoredTab(record: StoredTab): SavedTab {
 
 export interface SyncOp {
   id: string;
-  table: "groups" | "tabs";
+  table: "groups" | "tabs" | "config";
   op: "upsert" | "delete";
   entityId: string;
-  payload?: Group | SavedTab;
+  payload?: Group | SavedTab | AppConfig;
   createdAt: number;
 }
 
@@ -71,6 +73,15 @@ interface ArfyinDbSchema extends DBSchema {
     key: string;
     value: Blob;
   };
+  background_cache: {
+    key: string;
+    value: BackgroundCacheEntry;
+  };
+}
+
+export interface BackgroundCacheEntry {
+  candidates: BackgroundCandidate[];
+  fetchedAt: number;
 }
 
 const APP_CONFIG_KEY = "appConfig";
@@ -83,7 +94,7 @@ export type ArfyinDb = IDBPDatabase<ArfyinDbSchema>;
  * rodarem (ver tests/setup.ts), então nenhum mock manual é necessário aqui.
  */
 export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
-  return openDB<ArfyinDbSchema>(name, 4, {
+  return openDB<ArfyinDbSchema>(name, 5, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         db.createObjectStore("groups", { keyPath: "id" });
@@ -99,6 +110,9 @@ export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
       }
       if (oldVersion < 4) {
         db.createObjectStore("assets", { keyPath: undefined });
+      }
+      if (oldVersion < 5) {
+        db.createObjectStore("background_cache", { keyPath: undefined });
       }
     },
   });
@@ -121,14 +135,39 @@ export async function deleteAsset(db: ArfyinDb, id: string): Promise<void> {
 
 export async function getAppConfig(db: ArfyinDb): Promise<AppConfig> {
   const config = await db.get("config", APP_CONFIG_KEY);
+  const defaults = defaultAppConfig();
   // merge defensivo: registros gravados antes de um campo novo existir nao
   // devem quebrar leituras futuras (ex.: layoutMode/clock adicionados depois
-  // de quickAccess).
-  return { ...defaultAppConfig(), ...config };
+  // de quickAccess). Precisa ser aninhado em clock/background/tabManagerStyle
+  // — um spread raso substituiria o objeto inteiro e descartaria os defaults
+  // dos campos novos (ex.: um usuario real que ja tinha `clock` salvo antes
+  // de `fontWeight` existir ficaria com `fontWeight: undefined`, nao com o
+  // default).
+  return {
+    ...defaults,
+    ...config,
+    clock: { ...defaults.clock, ...config?.clock },
+    background: { ...defaults.background, ...config?.background },
+    tabManagerStyle: { ...defaults.tabManagerStyle, ...config?.tabManagerStyle },
+  };
 }
 
 export async function setAppConfig(db: ArfyinDb, config: AppConfig): Promise<void> {
-  await db.put("config", config, APP_CONFIG_KEY);
+  await db.put("config", { ...config, updatedAt: now() }, APP_CONFIG_KEY);
+}
+
+/**
+ * Mescla a config vinda do Supabase (pull) — mesmo padrao last-write-wins de
+ * mergeGroupFromRemote/mergeTabFromRemote. Ao contrario de `setAppConfig`
+ * (uso normal, sempre atualiza `updatedAt` para agora), esta grava o valor
+ * de `updatedAt` exatamente como veio do servidor — senao a comparacao de
+ * merge perderia sentido (o local pareceria sempre "mais novo").
+ */
+export async function mergeConfigFromRemote(db: ArfyinDb, remote: AppConfig): Promise<void> {
+  const local = await getAppConfig(db);
+  if (remote.updatedAt > local.updatedAt) {
+    await db.put("config", remote, APP_CONFIG_KEY);
+  }
 }
 
 let syncSeq = 0;
@@ -166,6 +205,20 @@ export async function getSyncStatus(db: ArfyinDb): Promise<SyncStatus> {
 
 export async function setSyncStatus(db: ArfyinDb, status: SyncStatus): Promise<void> {
   await db.put("meta", status, SYNC_STATUS_KEY);
+}
+
+/**
+ * Cache de candidatos de background (reddit/unsplash), evitando um round-trip de
+ * rede a cada new-tab aberta — chave = assinatura da fonte configurada (ver
+ * `bgKey` em BackgroundLayer.svelte). TTL e staleness ficam por conta do chamador.
+ */
+export async function getBackgroundCache(db: ArfyinDb, key: string): Promise<BackgroundCacheEntry | null> {
+  const entry = await db.get("background_cache", key);
+  return entry ?? null;
+}
+
+export async function setBackgroundCache(db: ArfyinDb, key: string, entry: BackgroundCacheEntry): Promise<void> {
+  await db.put("background_cache", entry, key);
 }
 
 function now(): number {
@@ -223,7 +276,6 @@ export async function addTabToGroup(
     title: input.title,
     faviconUrl: input.faviconUrl ?? null,
     order: siblingCount,
-    pinned: input.pinned ?? false,
     createdAt: now(),
     updatedAt: now(),
   };
@@ -232,7 +284,46 @@ export async function addTabToGroup(
 }
 
 export async function removeTab(db: ArfyinDb, id: string): Promise<void> {
-  await db.delete("tabs", id);
+  const stored = await db.get("tabs", id);
+  if (!stored) return;
+  const tab = fromStoredTab(stored);
+  // Recompacta os irmaos remanescentes (invariante: order e sempre 0..n-1 sem
+  // buracos, igual reorderTab/moveTab ja fazem) — sem isso, addTabToGroup
+  // (que usa a CONTAGEM de irmaos como novo order) podia colidir com o order
+  // de uma aba existente depois de remover uma do meio da lista.
+  const siblings = (await listTabsByGroup(db, tab.groupId)).filter((t) => t.id !== id);
+
+  const tx = db.transaction("tabs", "readwrite");
+  await Promise.all([
+    tx.objectStore("tabs").delete(id),
+    ...siblings.map((t, index) => tx.objectStore("tabs").put(toStoredTab({ ...t, order: index }))),
+  ]);
+  await tx.done;
+}
+
+/**
+ * Mescla um grupo vindo do Supabase (pull) no IndexedDB local — usado no
+ * bootstrap de sync apos login (ver sync.ts: pullAndMerge). Last-write-wins
+ * por `updatedAt`: so sobrescreve a copia local se o registro remoto for mais
+ * recente (ou se simplesmente nao existir local ainda). Limitacao conhecida,
+ * aceita por ora (ADR-007 presume uso single-user na pratica): se dois
+ * dispositivos offline criarem abas no MESMO grupo ao mesmo tempo, o merge
+ * nao recompacta `order` entre as duas origens — pode haver `order` duplicado
+ * dentro do grupo ate a proxima reordenacao manual.
+ */
+export async function mergeGroupFromRemote(db: ArfyinDb, remote: Group): Promise<void> {
+  const local = await db.get("groups", remote.id);
+  if (!local || remote.updatedAt > local.updatedAt) {
+    await db.put("groups", remote);
+  }
+}
+
+export async function mergeTabFromRemote(db: ArfyinDb, remote: SavedTab): Promise<void> {
+  const stored = await db.get("tabs", remote.id);
+  const local = stored ? fromStoredTab(stored) : null;
+  if (!local || remote.updatedAt > local.updatedAt) {
+    await db.put("tabs", toStoredTab(remote));
+  }
 }
 
 export async function listTabsByGroup(
@@ -241,14 +332,19 @@ export async function listTabsByGroup(
 ): Promise<SavedTab[]> {
   const indexKey = groupId ?? UNGROUPED;
   const stored = await db.getAllFromIndex("tabs", "groupId", indexKey);
-  return stored.map(fromStoredTab).sort((a, b) => {
-    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    return a.order - b.order;
-  });
+  return stored.map(fromStoredTab).sort((a, b) => a.order - b.order);
 }
 
 export function listUngroupedTabs(db: ArfyinDb): Promise<SavedTab[]> {
   return listTabsByGroup(db, null);
+}
+
+/** Usado ao desativar o pseudo-grupo "Sem categoria" nas configurações (apaga tudo que estava solto). */
+export async function deleteAllUngroupedTabs(db: ArfyinDb): Promise<void> {
+  const tabs = await listUngroupedTabs(db);
+  const tx = db.transaction("tabs", "readwrite");
+  await Promise.all(tabs.map((t) => tx.objectStore("tabs").delete(t.id)));
+  await tx.done;
 }
 
 export async function getTabById(db: ArfyinDb, id: string): Promise<SavedTab | null> {
@@ -291,18 +387,20 @@ export async function reorderGroup(db: ArfyinDb, groupId: string, newIndex: numb
   await tx.done;
 }
 
-export async function setTabPinned(db: ArfyinDb, id: string, pinned: boolean): Promise<void> {
-  const stored = await db.get("tabs", id);
-  if (!stored) return;
-  await db.put("tabs", { ...stored, pinned, updatedAt: now() });
-}
-
 export async function reorderTab(db: ArfyinDb, tabId: string, newIndex: number): Promise<void> {
   const stored = await db.get("tabs", tabId);
   if (!stored) return;
   const tab = fromStoredTab(stored);
-  const siblings = (await listTabsByGroup(db, tab.groupId)).filter((t) => t.id !== tabId);
-  const clampedIndex = Math.max(0, Math.min(newIndex, siblings.length));
+  const all = await listTabsByGroup(db, tab.groupId);
+  const currentIndex = all.findIndex((t) => t.id === tabId);
+  const siblings = all.filter((t) => t.id !== tabId);
+  // `newIndex` e calculado pelo chamador sobre a lista COMPLETA (com o proprio
+  // item ainda nela). Remover o item desloca tudo que vinha depois dele uma
+  // posicao pra tras — sem este ajuste, soltar um item sobre um alvo que vem
+  // DEPOIS da origem o insere depois do alvo em vez de antes (assimetria
+  // confirmada manualmente: só ocorria quando newIndex > currentIndex).
+  const adjustedIndex = currentIndex !== -1 && newIndex > currentIndex ? newIndex - 1 : newIndex;
+  const clampedIndex = Math.max(0, Math.min(adjustedIndex, siblings.length));
   siblings.splice(clampedIndex, 0, tab);
 
   const tx = db.transaction("tabs", "readwrite");
@@ -357,6 +455,27 @@ export async function listAllTabs(db: ArfyinDb): Promise<SavedTab[]> {
   return stored.map(fromStoredTab);
 }
 
+/**
+ * Agrupa todas as abas por grupo numa unica leitura — substitui o padrao
+ * anterior de 1 chamada por grupo em serie (N round-trips a cada `loadAll`
+ * da new-tab). `sort` e estavel (garantido pelo motor V8/Chrome), entao
+ * particionar por `groupId` depois de ordenar preserva a mesma ordem
+ * relativa (por `order`) que `listTabsByGroup` produz por grupo.
+ */
+export async function listAllTabsGrouped(
+  db: ArfyinDb,
+): Promise<{ tabsByGroup: Record<string, SavedTab[]>; ungrouped: SavedTab[] }> {
+  const all = await listAllTabs(db);
+  const sorted = [...all].sort((a, b) => a.order - b.order);
+  const tabsByGroup: Record<string, SavedTab[]> = {};
+  const ungrouped: SavedTab[] = [];
+  for (const tab of sorted) {
+    if (tab.groupId === null) ungrouped.push(tab);
+    else (tabsByGroup[tab.groupId] ??= []).push(tab);
+  }
+  return { tabsByGroup, ungrouped };
+}
+
 export async function exportAllData(db: ArfyinDb): Promise<DataExport> {
   const [groups, tabs] = await Promise.all([listGroups(db), listAllTabs(db)]);
   return { schemaVersion: 1, exportedAt: now(), groups, tabs };
@@ -382,13 +501,12 @@ export async function importDataExport(db: ArfyinDb, data: DataExport): Promise<
 
   for (const tab of data.tabs) {
     const newGroupId = tab.groupId === null ? null : (oldToNewGroupId.get(tab.groupId) ?? null);
-    const created = await addTabToGroup(db, {
+    await addTabToGroup(db, {
       url: tab.url,
       title: tab.title,
       faviconUrl: tab.faviconUrl,
       groupId: newGroupId,
     });
-    if (tab.pinned) await setTabPinned(db, created.id, true);
   }
 }
 
@@ -398,4 +516,21 @@ export async function exportConfig(db: ArfyinDb): Promise<ConfigExport> {
 
 export async function importConfigExport(db: ArfyinDb, data: ConfigExport): Promise<void> {
   await setAppConfig(db, data.config);
+}
+
+/**
+ * Export unico (dados + config) — substitui os dois arquivos/botoes
+ * separados (`exportAllData`/`exportConfig`): um backup completo precisa de
+ * um unico arquivo pra restaurar tudo de uma vez, sem o usuario ter que
+ * lembrar de guardar/importar duas coisas separadas (e sem lidar com zip).
+ */
+export async function exportBackupBundle(db: ArfyinDb): Promise<BackupBundle> {
+  const [groups, tabs, config] = await Promise.all([listGroups(db), listAllTabs(db), getAppConfig(db)]);
+  return { schemaVersion: 1, exportedAt: now(), groups, tabs, config };
+}
+
+/** Dados sempre duplicados (ver `importDataExport`); config sempre substitui a anterior. */
+export async function importBackupBundle(db: ArfyinDb, bundle: BackupBundle): Promise<void> {
+  await importDataExport(db, { schemaVersion: 1, exportedAt: bundle.exportedAt, groups: bundle.groups, tabs: bundle.tabs });
+  await setAppConfig(db, bundle.config);
 }

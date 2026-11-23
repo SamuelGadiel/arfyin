@@ -1,13 +1,12 @@
 import type {
   AppConfig,
-  ConfigExport,
-  DataExport,
+  BackupBundle,
   Group,
   NewSavedTabInput,
   QuickAccessItem,
   SavedTab,
 } from "./types";
-import type { SyncStatus } from "./storage";
+import type { BackgroundCacheEntry, SyncStatus } from "./storage";
 
 export interface PingMessage {
   type: "PING";
@@ -69,6 +68,10 @@ export interface ListUngroupedTabsMessage {
   type: "LIST_UNGROUPED_TABS";
 }
 
+export interface ListAllTabsMessage {
+  type: "LIST_ALL_TABS";
+}
+
 export interface GetSyncStatusMessage {
   type: "GET_SYNC_STATUS";
 }
@@ -90,12 +93,6 @@ export interface ReorderGroupMessage {
   type: "REORDER_GROUP";
   id: string;
   newIndex: number;
-}
-
-export interface SetTabPinnedMessage {
-  type: "SET_TAB_PINNED";
-  id: string;
-  pinned: boolean;
 }
 
 export interface ReorderTabMessage {
@@ -125,22 +122,18 @@ export interface UpdateConfigMessage {
   patch: Partial<AppConfig>;
 }
 
-export interface ExportDataMessage {
-  type: "EXPORT_DATA";
+export interface SetUngroupedEnabledMessage {
+  type: "SET_UNGROUPED_ENABLED";
+  enabled: boolean;
 }
 
-export interface ImportDataMessage {
-  type: "IMPORT_DATA";
-  data: DataExport;
+export interface ExportBackupMessage {
+  type: "EXPORT_BACKUP";
 }
 
-export interface ExportConfigMessage {
-  type: "EXPORT_CONFIG";
-}
-
-export interface ImportConfigMessage {
-  type: "IMPORT_CONFIG";
-  data: ConfigExport;
+export interface ImportBackupMessage {
+  type: "IMPORT_BACKUP";
+  data: BackupBundle;
 }
 
 export interface AddAssetMessage {
@@ -158,6 +151,21 @@ export interface DeleteAssetMessage {
   id: string;
 }
 
+export interface GetBackgroundCacheMessage {
+  type: "GET_BACKGROUND_CACHE";
+  key: string;
+}
+
+export interface SetBackgroundCacheMessage {
+  type: "SET_BACKGROUND_CACHE";
+  key: string;
+  entry: BackgroundCacheEntry;
+}
+
+export interface BootstrapSyncMessage {
+  type: "BOOTSTRAP_SYNC";
+}
+
 export type ArfyinMessage =
   | PingMessage
   | ListGroupsMessage
@@ -168,83 +176,101 @@ export type ArfyinMessage =
   | DeleteGroupMessage
   | RemoveTabMessage
   | ListUngroupedTabsMessage
+  | ListAllTabsMessage
   | GetSyncStatusMessage
   | SetGroupCollapsedMessage
   | UpdateGroupAppearanceMessage
   | ReorderGroupMessage
-  | SetTabPinnedMessage
   | ReorderTabMessage
   | MoveTabMessage
   | GetConfigMessage
   | SetQuickAccessMessage
   | UpdateConfigMessage
-  | ExportDataMessage
-  | ImportDataMessage
-  | ExportConfigMessage
-  | ImportConfigMessage
+  | SetUngroupedEnabledMessage
+  | ExportBackupMessage
+  | ImportBackupMessage
   | AddAssetMessage
   | GetAssetMessage
-  | DeleteAssetMessage;
+  | DeleteAssetMessage
+  | GetBackgroundCacheMessage
+  | SetBackgroundCacheMessage
+  | BootstrapSyncMessage;
 
 export type ArfyinResponse =
   | PongMessage
   | { type: "GROUPS"; groups: Group[] }
   | { type: "GROUP_CREATED"; group: Group }
   | { type: "TABS"; tabs: SavedTab[] }
-  | { type: "TAB_ADDED"; tab: SavedTab }
-  | { type: "GROUP_RENAMED" }
+  | { type: "ALL_TABS"; tabsByGroup: Record<string, SavedTab[]>; ungrouped: SavedTab[] }
+  | { type: "TAB_ADDED"; tab: SavedTab; tabs: SavedTab[] }
+  | { type: "GROUP_RENAMED"; group: Group | null }
   | { type: "GROUP_DELETED" }
-  | { type: "TAB_REMOVED" }
+  | { type: "TAB_REMOVED"; groupId: string | null; tabs: SavedTab[] }
   | { type: "SYNC_STATUS"; status: SyncStatus }
-  | { type: "GROUP_COLLAPSED_SET" }
-  | { type: "GROUP_APPEARANCE_UPDATED" }
-  | { type: "GROUP_REORDERED" }
-  | { type: "TAB_PINNED_SET" }
-  | { type: "TAB_REORDERED" }
-  | { type: "TAB_MOVED" }
+  | { type: "GROUP_COLLAPSED_SET"; group: Group | null }
+  | { type: "GROUP_APPEARANCE_UPDATED"; group: Group | null }
+  | { type: "GROUP_REORDERED"; groups: Group[] }
+  | { type: "TAB_REORDERED"; groupId: string | null; tabs: SavedTab[] }
+  | {
+      type: "TAB_MOVED";
+      sourceGroupId: string | null;
+      sourceTabs: SavedTab[];
+      destGroupId: string | null;
+      destTabs: SavedTab[];
+    }
   | { type: "CONFIG"; config: AppConfig }
-  | { type: "QUICK_ACCESS_SET" }
-  | { type: "CONFIG_UPDATED" }
-  | { type: "DATA_EXPORTED"; data: DataExport }
-  | { type: "DATA_IMPORTED" }
-  | { type: "CONFIG_EXPORTED"; data: ConfigExport }
-  | { type: "CONFIG_IMPORTED" }
+  | { type: "QUICK_ACCESS_SET"; config: AppConfig }
+  | { type: "CONFIG_UPDATED"; config: AppConfig }
+  | { type: "UNGROUPED_ENABLED_SET"; config: AppConfig; ungrouped: SavedTab[] }
+  | { type: "BACKUP_EXPORTED"; data: BackupBundle }
+  | { type: "BACKUP_IMPORTED" }
   | { type: "ASSET_ADDED"; id: string }
   | { type: "ASSET"; blob: Blob | null }
-  | { type: "ASSET_DELETED" };
+  | { type: "ASSET_DELETED" }
+  | { type: "BACKGROUND_CACHE"; entry: BackgroundCacheEntry | null }
+  | { type: "BACKGROUND_CACHE_SET" }
+  | { type: "BOOTSTRAP_SYNC_DONE" };
 
 function hasType(message: unknown): message is { type: string } {
   return typeof message === "object" && message !== null && "type" in message;
 }
 
+// `satisfies Record<ArfyinMessage["type"], true>` trava isto no compilador: um
+// tipo novo adicionado a uniao ArfyinMessage e esquecido aqui vira ERRO DE
+// COMPILACAO (chave faltando), nao mais uma mensagem rejeitada em silencio em
+// producao. Mesma protecao no sentido inverso (chave sobrando tambem quebra).
+const MESSAGE_TYPES = {
+  PING: true,
+  LIST_GROUPS: true,
+  CREATE_GROUP: true,
+  LIST_TABS_BY_GROUP: true,
+  ADD_TAB: true,
+  RENAME_GROUP: true,
+  DELETE_GROUP: true,
+  REMOVE_TAB: true,
+  LIST_UNGROUPED_TABS: true,
+  LIST_ALL_TABS: true,
+  GET_SYNC_STATUS: true,
+  SET_GROUP_COLLAPSED: true,
+  UPDATE_GROUP_APPEARANCE: true,
+  REORDER_GROUP: true,
+  REORDER_TAB: true,
+  MOVE_TAB: true,
+  GET_CONFIG: true,
+  SET_QUICK_ACCESS: true,
+  UPDATE_CONFIG: true,
+  SET_UNGROUPED_ENABLED: true,
+  EXPORT_BACKUP: true,
+  IMPORT_BACKUP: true,
+  ADD_ASSET: true,
+  GET_ASSET: true,
+  DELETE_ASSET: true,
+  GET_BACKGROUND_CACHE: true,
+  SET_BACKGROUND_CACHE: true,
+  BOOTSTRAP_SYNC: true,
+} satisfies Record<ArfyinMessage["type"], true>;
+
 export function isArfyinMessage(message: unknown): message is ArfyinMessage {
   if (!hasType(message)) return false;
-  return [
-    "PING",
-    "LIST_GROUPS",
-    "CREATE_GROUP",
-    "LIST_TABS_BY_GROUP",
-    "ADD_TAB",
-    "RENAME_GROUP",
-    "DELETE_GROUP",
-    "REMOVE_TAB",
-    "LIST_UNGROUPED_TABS",
-    "GET_SYNC_STATUS",
-    "SET_GROUP_COLLAPSED",
-    "UPDATE_GROUP_APPEARANCE",
-    "REORDER_GROUP",
-    "SET_TAB_PINNED",
-    "REORDER_TAB",
-    "MOVE_TAB",
-    "GET_CONFIG",
-    "SET_QUICK_ACCESS",
-    "UPDATE_CONFIG",
-    "EXPORT_DATA",
-    "IMPORT_DATA",
-    "EXPORT_CONFIG",
-    "IMPORT_CONFIG",
-    "ADD_ASSET",
-    "GET_ASSET",
-    "DELETE_ASSET",
-  ].includes(message.type);
+  return message.type in MESSAGE_TYPES;
 }

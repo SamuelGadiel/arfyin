@@ -1,4 +1,4 @@
-import type { Group, SavedTab } from "./types";
+import type { AppConfig, Group, SavedTab } from "./types";
 
 /**
  * Forma minima do que usamos do cliente supabase-js, pra poder testar com um fake
@@ -23,7 +23,7 @@ export interface DeleteBuilder extends PromiseLike<DeleteResponse> {
 }
 
 export interface RemoteDb {
-  from(table: "groups" | "tabs"): {
+  from(table: "groups" | "tabs" | "config"): {
     upsert(row: object): PromiseLike<{ error: { message: string } | null }>;
     select(columns: string): SelectBuilder;
     delete(): DeleteBuilder;
@@ -50,7 +50,6 @@ interface TabRow {
   title: string;
   favicon_url: string | null;
   order: number;
-  pinned: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -91,7 +90,6 @@ function tabToRow(userId: string, tab: SavedTab): TabRow {
     title: tab.title,
     favicon_url: tab.faviconUrl,
     order: tab.order,
-    pinned: tab.pinned,
     created_at: new Date(tab.createdAt).toISOString(),
     updated_at: new Date(tab.updatedAt).toISOString(),
   };
@@ -105,7 +103,6 @@ function rowToTab(row: TabRow): SavedTab {
     title: row.title,
     faviconUrl: row.favicon_url,
     order: row.order,
-    pinned: row.pinned,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
   };
@@ -149,4 +146,32 @@ export async function pullTabsByGroup(
     .eq("user_id", userId);
   if (error) throw new Error(`Falha ao buscar abas: ${error.message}`);
   return (data ?? []).map((row) => rowToTab(row as unknown as TabRow));
+}
+
+/** Todas as abas do usuario, independente de grupo (inclui abas soltas) — usado no bootstrap/merge do login. */
+export async function pullAllTabs(db: RemoteDb, userId: string): Promise<SavedTab[]> {
+  const { data, error } = await db.from("tabs").select("*").eq("user_id", userId);
+  if (error) throw new Error(`Falha ao buscar abas: ${error.message}`);
+  return (data ?? []).map((row) => rowToTab(row as unknown as TabRow));
+}
+
+interface ConfigRow {
+  user_id: string;
+  data: AppConfig;
+  updated_at: string;
+}
+
+export async function pushConfig(db: RemoteDb, userId: string, config: AppConfig): Promise<void> {
+  const row: ConfigRow = { user_id: userId, data: config, updated_at: new Date(config.updatedAt).toISOString() };
+  const { error } = await db.from("config").upsert(row);
+  if (error) throw new Error(`Falha ao sincronizar config: ${error.message}`);
+}
+
+/** `null` quando o usuario ainda nao tem config nenhuma salva no Supabase (conta nova). */
+export async function pullConfig(db: RemoteDb, userId: string): Promise<AppConfig | null> {
+  const { data, error } = await db.from("config").select("*").eq("user_id", userId);
+  if (error) throw new Error(`Falha ao buscar config: ${error.message}`);
+  const row = (data?.[0] as unknown as ConfigRow | undefined) ?? null;
+  if (!row) return null;
+  return { ...row.data, updatedAt: new Date(row.updated_at).getTime() };
 }

@@ -25,3 +25,51 @@ export function pickRandom<T>(items: T[]): T | null {
   if (items.length === 0) return null;
   return items[Math.floor(Math.random() * items.length)] ?? null;
 }
+
+/** Candidato de background com atribuicao opcional (Unsplash exige; reddit/local nao tem). */
+export interface BackgroundCandidate {
+  url: string;
+  attribution?: {
+    photographerName: string;
+    photographerUrl: string;
+    /** Link genérico para unsplash.com (com UTM), conforme formato oficial de atribuição. */
+    unsplashUrl: string;
+    /** URL a chamar (GET) quando a foto for efetivamente usada — guideline da Unsplash API. */
+    downloadLocation: string;
+  };
+}
+
+/** Forma minima de uma foto retornada por `api.unsplash.com/photos/random`. */
+export interface MinimalUnsplashPhoto {
+  urls: { regular?: string };
+  user: { name?: string; links?: { html?: string } };
+  links: { download_location?: string };
+}
+
+const UNSPLASH_APP_NAME = "arfyin";
+
+/** Guideline oficial da Unsplash: todo link de atribuicao leva utm_source/utm_medium. */
+function withUnsplashUtm(url: string): string {
+  const u = new URL(url);
+  u.searchParams.set("utm_source", UNSPLASH_APP_NAME);
+  u.searchParams.set("utm_medium", "referral");
+  return u.toString();
+}
+
+/**
+ * Extrai candidatos de background de uma resposta do Unsplash, com atribuicao.
+ * Funcao pura — testavel sem fetch real.
+ */
+export function extractUnsplashCandidates(photos: MinimalUnsplashPhoto[]): BackgroundCandidate[] {
+  return photos
+    .filter((p) => typeof p.urls.regular === "string" && typeof p.links.download_location === "string")
+    .map((p) => ({
+      url: p.urls.regular as string,
+      attribution: {
+        photographerName: p.user.name ?? "Unsplash",
+        photographerUrl: withUnsplashUtm(p.user.links?.html ?? "https://unsplash.com"),
+        unsplashUrl: withUnsplashUtm("https://unsplash.com/"),
+        downloadLocation: p.links.download_location as string,
+      },
+    }));
+}

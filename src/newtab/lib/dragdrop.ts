@@ -26,7 +26,13 @@ export interface LiveWindowDragPayload {
   tabs: Omit<LiveTabDragPayload, "kind">[];
 }
 
-export type DragPayload = SavedTabDragPayload | LiveTabDragPayload | LiveWindowDragPayload;
+/** Varias abas vivas selecionadas (modo de selecao multipla) arrastadas juntas numa unica operacao. */
+export interface LiveTabsBatchDragPayload {
+  kind: "live-tabs-batch";
+  tabs: Omit<LiveTabDragPayload, "kind">[];
+}
+
+export type DragPayload = SavedTabDragPayload | LiveTabDragPayload | LiveWindowDragPayload | LiveTabsBatchDragPayload;
 
 export function setDragPayload(event: DragEvent, payload: DragPayload): void {
   event.dataTransfer?.setData(MIME_TYPE, JSON.stringify(payload));

@@ -10,7 +10,6 @@ import {
   reorderGroup,
   reorderTab,
   setGroupCollapsed,
-  setTabPinned,
   updateGroupAppearance,
   type ArfyinDb,
 } from "@/shared/storage";
@@ -54,20 +53,6 @@ describe("reorderGroup", () => {
   });
 });
 
-describe("setTabPinned", () => {
-  it("fixa uma aba (passa a aparecer primeiro na listagem)", async () => {
-    const group = await createGroup(db, "Grupo");
-    await addTabToGroup(db, { url: "https://1.com", title: "1", groupId: group.id });
-    const second = await addTabToGroup(db, { url: "https://2.com", title: "2", groupId: group.id });
-
-    await setTabPinned(db, second.id, true);
-
-    const tabs = await listTabsByGroup(db, group.id);
-    expect(tabs[0]?.id).toBe(second.id);
-    expect(tabs[0]?.pinned).toBe(true);
-  });
-});
-
 describe("reorderTab", () => {
   it("reordena abas dentro do mesmo grupo e recompacta order", async () => {
     const group = await createGroup(db, "Grupo");
@@ -80,6 +65,23 @@ describe("reorderTab", () => {
     const tabs = await listTabsByGroup(db, group.id);
     expect(tabs.map((t) => t.id)).toEqual([t3.id, t1.id, t2.id]);
     expect(tabs.map((t) => t.order)).toEqual([0, 1, 2]);
+  });
+
+  it("arrastar a origem para cima de um alvo que vem DEPOIS a posiciona antes do alvo (nao depois)", async () => {
+    // Reproduz exatamente o gesto do GroupItem.svelte: o indice passado é o
+    // indice do alvo na lista COMPLETA (com a origem ainda presente). Bug
+    // confirmado manualmente no Chrome real antes desta correcao: t1 ficava
+    // DEPOIS de t3 em vez de antes.
+    const group = await createGroup(db, "Grupo");
+    const t1 = await addTabToGroup(db, { url: "https://1.com", title: "1", groupId: group.id });
+    const t2 = await addTabToGroup(db, { url: "https://2.com", title: "2", groupId: group.id });
+    const t3 = await addTabToGroup(db, { url: "https://3.com", title: "3", groupId: group.id });
+
+    // t1 esta no indice 0; t3 (alvo) esta no indice 2 na lista completa [t1,t2,t3].
+    await reorderTab(db, t1.id, 2);
+
+    const tabs = await listTabsByGroup(db, group.id);
+    expect(tabs.map((t) => t.id)).toEqual([t2.id, t1.id, t3.id]);
   });
 });
 

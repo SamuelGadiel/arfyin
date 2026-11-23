@@ -85,6 +85,14 @@
 ### D3. Requisito crítico de monitoramento em background
 - Esse monitoramento **não pode depender da new-tab estar aberta**. Precisa funcionar mesmo que não haja nenhuma new-tab aberta no momento — o usuário pode fechar o Chrome sem ter aberto nenhuma new-tab naquela sessão, e ainda assim espera que tudo tenha sido salvo.
 
+### D4. Achado técnico (2026-11-21) — limitação real da Chrome Extensions API, não só "pensar mais"
+Pesquisa aprofundada (docs oficiais `developer.chrome.com` + Chromium issue tracker) confirma uma limitação arquitetural, não apenas uma decisão de produto em aberto:
+- **Não existe API de extensão para desligar o restore nativo do Chrome** ("Continuar de onde parou"). O pref (`session.restore_on_startup`) só é exposto via **enterprise policy** administrada por domínio — não por código de extensão. A `manifest key` `chrome_settings_overrides.startup_pages` controla apenas a opção "abrir página específica", não o modo de restaurar sessão.
+- **Não existe evento que avise a extensão que o Chrome restaurou abas automaticamente no boot.** `chrome.runtime.onStartup` dispara ao iniciar o profile, mas não diferencia "restaurou sessão anterior" de "abriu limpo".
+- **Não existe um "beforeunload" de navegador** (só de página). `windows.onRemoved`/`tabs.onRemoved` disparam por aba/janela individualmente, sem garantia de capturar o fechamento final do processo antes que ele morra — é um [issue aberto e não resolvido no próprio Chromium](https://issues.chromium.org/issues/40337437).
+- **Consequência prática para D2**: dá para a extensão *também* salvar seu próprio estado continuamente (o que ARF-030/031 já faz via eventos `tabs`/`windows`), mas **não dá para desligar o restore nativo do Chrome por código** — as duas rotinas (nativa + extensão) sempre coexistem. O máximo que a extensão pode oferecer é: (a) guiar o usuário a desligar manualmente em `chrome://settings/onStartup` (ação dele, não da extensão), e (b) ter sua própria cópia do estado pronta para o caso de ele desligar. Não existe um "toggle" que a extensão ligue/desligue sozinha como o ARF-040 original presumia.
+- Isso não invalida o tema D, mas muda o escopo real do ARF-040: de "a extensão desliga o restore nativo" para "a extensão oferece seu próprio restore paralelo, e o usuário decide manualmente desligar o nativo se quiser evitar duplicação". Decisão de como desenhar o SDD fica para quando o usuário quiser destravar este tema.
+
 ---
 
 ## Tema E — Arquitetura de performance (processo central + cache)
@@ -213,6 +221,9 @@
 - **Tecla modificadora + número**: abre aquele item em nova aba **sem foco**.
 - Pode encadear: modificador + vários números em sequência → abre **múltiplos** itens de acesso rápido em abas, todos sem foco.
 - Possível tecla **0** (ou equivalente): abre **todos** os itens de acesso rápido de uma vez.
+
+### J4. Bug conhecido (2026-11-21) — tecla numérica vai para a barra de endereços, não para o atalho
+Reportado pelo usuário em uso real: apertar "1" (sem modificador) digitou "1" na barra de endereços do Chrome em vez de abrir o item de acesso rápido correspondente. Causa provável: o Chrome trata teclas numéricas simples como atalho nativo para a barra de endereços em certos contextos de foco da new-tab, competindo com o `keydown` da extensão. **Investigação e correção adiadas a pedido explícito do usuário** ("vamos pensar nisso depois, não agora") — possível direção: exigir sempre uma tecla modificadora (não só para abrir sem foco), a decidir quando o tema for retomado.
 
 ---
 

@@ -21,6 +21,7 @@ export default defineConfig({
       VITE_SUPABASE_URL: "",
       VITE_SUPABASE_PUBLISHABLE_KEY: "",
       VITE_GOOGLE_CLIENT_ID: "",
+      VITE_UNSPLASH_ACCESS_KEY: "",
     },
   },
 });

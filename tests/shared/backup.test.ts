@@ -11,7 +11,6 @@ import {
   listGroups,
   openArfyinDb,
   setGroupCollapsed,
-  setTabPinned,
   updateGroupAppearance,
   type ArfyinDb,
 } from "@/shared/storage";
@@ -41,7 +40,6 @@ describe("export/import de dados", () => {
     await updateGroupAppearance(db, group.id, { color: "#f00", icon: "tv" });
     await setGroupCollapsed(db, group.id, true);
     const tab = await addTabToGroup(db, { url: "https://a.com", title: "A", groupId: group.id });
-    await setTabPinned(db, tab.id, true);
 
     const dump = await exportAllData(db);
     await importDataExport(db, dump);
@@ -59,7 +57,6 @@ describe("export/import de dados", () => {
     expect(tabs).toHaveLength(2);
     const importedTab = tabs.find((t) => t.id !== tab.id);
     expect(importedTab?.groupId).toBe(imported?.id);
-    expect(importedTab?.pinned).toBe(true);
   });
 
   it("importar duas vezes duplica tudo (nunca decide o que descartar)", async () => {
@@ -100,6 +97,11 @@ describe("export/import de configuracao", () => {
     };
     await importConfigExport(db, { schemaVersion: 1, exportedAt: 123, config: newConfig });
 
-    expect(await getAppConfig(db)).toEqual(newConfig);
+    // `updatedAt` e sempre sobrescrito para "agora" por setAppConfig (usado
+    // pelo merge last-write-wins com o Supabase) — nao faz parte do que o
+    // import "restaura" literalmente, entao nao comparamos esse campo aqui.
+    const { updatedAt: _ignored, ...restored } = await getAppConfig(db);
+    const { updatedAt: _ignoredExpected, ...expected } = newConfig;
+    expect(restored).toEqual(expected);
   });
 });

@@ -19,3 +19,6 @@ Introduz `layoutMode` (`"scroll-reveal" | "coexistent" | "no-clock"`) e um `Cloc
 
 ## Testes previstos
 Sem lógica pura isolada relevante além do que já existe (merge de config é trivial). Validação por teste manual no Chrome real, como os demais cards de UI desta sessão.
+
+## Bug corrigido (2026-11-21) — scroll só funcionava em uma direção
+Reportado pelo usuário em uso real: rolar para baixo no modo `scroll-reveal` revelava a seção de abas corretamente, mas rolar para cima não voltava para o relógio — era preciso rolar manualmente pelo conteúdo todo. Causa: o listener `onwheel` só estava registrado na seção do relógio (`.clock-screen`), nunca na seção de abas (`.tabs-screen`); não havia como capturar o scroll-para-cima a partir de lá. Corrigido com um segundo handler (`handleWheelUp`, `deltaY < 0`) na seção de abas, chamando `scrollIntoView` de volta para o relógio — e, por simetria, `ArrowUp` agora também volta (só `ArrowDown` existia antes).

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  pullAllTabs,
+  pullConfig,
   pullGroups,
   pullTabsByGroup,
+  pushConfig,
   pushGroup,
   pushTab,
   type DeleteBuilder,
@@ -9,7 +12,7 @@ import {
   type SelectBuilder,
   type SelectResponse,
 } from "@/shared/remote";
-import type { Group, SavedTab } from "@/shared/types";
+import { defaultAppConfig, type Group, type SavedTab } from "@/shared/types";
 
 const group: Group = {
   id: "g1",
@@ -29,17 +32,16 @@ const tab: SavedTab = {
   title: "Jellyfin",
   faviconUrl: "https://jellyfin.org/favicon.ico",
   order: 0,
-  pinned: true,
   createdAt: 1000,
   updatedAt: 2000,
 };
 
-function fakeDb(overrides: Partial<Record<"groups" | "tabs", unknown[]>> = {}): {
+function fakeDb(overrides: Partial<Record<"groups" | "tabs" | "config", unknown[]>> = {}): {
   db: RemoteDb;
   upserts: object[];
 } {
   const upserts: object[] = [];
-  const rows: Record<string, unknown[]> = { groups: [], tabs: [], ...overrides };
+  const rows: Record<string, unknown[]> = { groups: [], tabs: [], config: [], ...overrides };
 
   const db: RemoteDb = {
     from(table) {
@@ -144,7 +146,6 @@ describe("remote: tabs", () => {
         title: "Jellyfin",
         favicon_url: "https://jellyfin.org/favicon.ico",
         order: 0,
-        pinned: true,
         created_at: new Date(1000).toISOString(),
         updated_at: new Date(2000).toISOString(),
       },
@@ -162,7 +163,6 @@ describe("remote: tabs", () => {
           title: "Jellyfin",
           favicon_url: "https://jellyfin.org/favicon.ico",
           order: 0,
-          pinned: true,
           created_at: new Date(1000).toISOString(),
           updated_at: new Date(2000).toISOString(),
         },
@@ -174,7 +174,6 @@ describe("remote: tabs", () => {
           title: "Outro",
           favicon_url: null,
           order: 0,
-          pinned: false,
           created_at: new Date(1000).toISOString(),
           updated_at: new Date(2000).toISOString(),
         },
@@ -183,5 +182,65 @@ describe("remote: tabs", () => {
 
     const tabs = await pullTabsByGroup(db, "user-1", "g1");
     expect(tabs).toEqual([tab]);
+  });
+
+  it("pullAllTabs traz todas as abas do usuario, incluindo abas soltas (group_id null)", async () => {
+    const { db } = fakeDb({
+      tabs: [
+        {
+          id: "t1",
+          user_id: "user-1",
+          group_id: "g1",
+          url: "https://jellyfin.org",
+          title: "Jellyfin",
+          favicon_url: "https://jellyfin.org/favicon.ico",
+          order: 0,
+          created_at: new Date(1000).toISOString(),
+          updated_at: new Date(2000).toISOString(),
+        },
+        {
+          id: "t2",
+          user_id: "user-1",
+          group_id: null,
+          url: "https://solta.com",
+          title: "Solta",
+          favicon_url: null,
+          order: 0,
+          created_at: new Date(1000).toISOString(),
+          updated_at: new Date(2000).toISOString(),
+        },
+      ],
+    });
+
+    const tabs = await pullAllTabs(db, "user-1");
+    expect(tabs.map((t) => t.id)).toEqual(["t1", "t2"]);
+    expect(tabs[1]?.groupId).toBeNull();
+  });
+});
+
+describe("remote: config", () => {
+  const config = { ...defaultAppConfig(), layoutMode: "no-clock" as const, updatedAt: 2000 };
+
+  it("pushConfig envia a config convertida para o formato da tabela", async () => {
+    const { db, upserts } = fakeDb();
+    await pushConfig(db, "user-1", config);
+
+    expect(upserts).toEqual([
+      { user_id: "user-1", data: config, updated_at: new Date(2000).toISOString() },
+    ]);
+  });
+
+  it("pullConfig retorna null quando o usuario ainda nao tem config salva", async () => {
+    const { db } = fakeDb();
+    expect(await pullConfig(db, "user-1")).toBeNull();
+  });
+
+  it("pullConfig converte a linha de volta, com updatedAt vindo de updated_at", async () => {
+    const { db } = fakeDb({
+      config: [{ user_id: "user-1", data: config, updated_at: new Date(2000).toISOString() }],
+    });
+
+    const pulled = await pullConfig(db, "user-1");
+    expect(pulled).toEqual(config);
   });
 });

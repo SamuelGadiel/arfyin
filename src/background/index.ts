@@ -1,6 +1,6 @@
 import { openArfyinDb } from "@/shared/storage";
 import { isArfyinMessage } from "@/shared/messaging";
-import { routeMessage, kickSync } from "./router";
+import { routeMessage, bootstrapSync } from "./router";
 import { registerLiveTabsBroadcast } from "./liveTabsBroadcast";
 
 registerLiveTabsBroadcast();
@@ -17,7 +17,12 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== SYNC_ALARM_NAME) return;
-  dbPromise.then(kickSync);
+  // bootstrapSync (pull-and-merge + push), nao so kickSync (push) — assim
+  // mudancas feitas em outro dispositivo convergem para ca periodicamente,
+  // nao so no momento do login.
+  dbPromise.then(bootstrapSync).catch((err) => {
+    console.error("[arfyin] bootstrapSync periodico falhou:", err instanceof Error ? err.message : err);
+  });
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

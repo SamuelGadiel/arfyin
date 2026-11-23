@@ -2,6 +2,7 @@
   import type { SavedTab } from "@/shared/types";
   import { store } from "../lib/store.svelte";
   import { setDragPayload } from "../lib/dragdrop";
+  import Icon from "./Icon.svelte";
 
   interface Props {
     tab: SavedTab;
@@ -16,11 +17,6 @@
 
   function handleDragStart(event: DragEvent) {
     setDragPayload(event, { kind: "saved-tab", tabId: tab.id, sourceGroupId: tab.groupId });
-  }
-
-  function togglePin(event: MouseEvent) {
-    event.stopPropagation();
-    store.setPinned(tab.id, !tab.pinned);
   }
 
   function remove(event: MouseEvent) {
@@ -44,10 +40,9 @@
     {/if}
     <span class="title">{tab.title}</span>
   </a>
-  <button class="icon-button" class:active={tab.pinned} onclick={togglePin} title="Fixar aba">
-    📌
+  <button class="icon-button remove-button" onclick={remove} title="Remover" aria-label="Remover aba">
+    <Icon name="x" size={14} />
   </button>
-  <button class="icon-button" onclick={remove} title="Remover">✕</button>
 </div>
 
 <style>
@@ -55,7 +50,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 6px;
+    padding: 6px 6px;
     border-radius: 6px;
   }
   .tab-item:hover {
@@ -90,10 +85,20 @@
     border: none;
     cursor: pointer;
     opacity: 0.5;
-    font-size: 12px;
+    display: flex;
+    padding: 4px;
   }
-  .icon-button:hover,
-  .icon-button.active {
+  .icon-button:hover {
+    opacity: 1;
+  }
+  .remove-button {
+    opacity: 0;
+  }
+  .tab-item:hover .remove-button,
+  .remove-button:focus-visible {
+    opacity: 0.5;
+  }
+  .remove-button:hover {
     opacity: 1;
   }
 </style>

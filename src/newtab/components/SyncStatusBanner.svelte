@@ -5,13 +5,16 @@
 
   const POLL_INTERVAL_MS = 30_000;
 
-  let state: SyncState = $state("idle");
+  // nomeada "syncState" (nao "state") para nao confundir o analisador de tipos
+  // com a rune `$state` — `svelte-check` reporta falso-positivo quando uma
+  // variavel comum se chama literalmente "state".
+  let syncState: SyncState = $state("idle");
   let lastError: string | null = $state(null);
 
   async function refresh() {
     const response = await send<"SYNC_STATUS">({ type: "GET_SYNC_STATUS" });
     if (response?.type === "SYNC_STATUS") {
-      state = response.status.state;
+      syncState = response.status.state;
       lastError = response.status.lastError;
     }
   }
@@ -28,7 +31,7 @@
   });
 </script>
 
-{#if state === "unreachable"}
+{#if syncState === "unreachable"}
   <div class="sync-banner" role="status" title={lastError ?? undefined}>
     Sincronização com a nuvem indisponível — seus dados continuam salvos localmente.
     Verifique se o projeto não está pausado no painel do Supabase.

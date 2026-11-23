@@ -1,7 +1,7 @@
 <script lang="ts">
   import { send } from "../lib/client";
   import { store } from "../lib/store.svelte";
-  import type { ConfigExport, DataExport } from "@/shared/types";
+  import type { BackupBundle } from "@/shared/types";
 
   function downloadJson(filename: string, content: unknown) {
     const blob = new Blob([JSON.stringify(content, null, 2)], { type: "application/json" });
@@ -13,14 +13,9 @@
     URL.revokeObjectURL(url);
   }
 
-  async function exportData() {
-    const res = await send<"DATA_EXPORTED">({ type: "EXPORT_DATA" });
-    if (res.type === "DATA_EXPORTED") downloadJson("arfyin-data-export.json", res.data);
-  }
-
-  async function exportConfig() {
-    const res = await send<"CONFIG_EXPORTED">({ type: "EXPORT_CONFIG" });
-    if (res.type === "CONFIG_EXPORTED") downloadJson("arfyin-config-export.json", res.data);
+  async function exportBackup() {
+    const res = await send<"BACKUP_EXPORTED">({ type: "EXPORT_BACKUP" });
+    if (res.type === "BACKUP_EXPORTED") downloadJson("arfyin-backup.json", res.data);
   }
 
   function readJsonFile(input: HTMLInputElement): Promise<unknown> {
@@ -34,27 +29,13 @@
     });
   }
 
-  async function importData(event: Event) {
+  async function importBackup(event: Event) {
     const input = event.target as HTMLInputElement;
     try {
-      const data = (await readJsonFile(input)) as DataExport;
-      await send({ type: "IMPORT_DATA", data });
+      const data = (await readJsonFile(input)) as BackupBundle;
+      await send({ type: "IMPORT_BACKUP", data });
       await store.loadAll();
-      alert("Dados importados (duplicados, nada foi substituído).");
-    } catch (err) {
-      alert(`Falha ao importar: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      input.value = "";
-    }
-  }
-
-  async function importConfig(event: Event) {
-    const input = event.target as HTMLInputElement;
-    try {
-      const data = (await readJsonFile(input)) as ConfigExport;
-      await send({ type: "IMPORT_CONFIG", data });
-      await store.loadAll();
-      alert("Configuração importada (substituiu a anterior).");
+      alert("Backup importado: abas/grupos duplicados, configuração substituída.");
     } catch (err) {
       alert(`Falha ao importar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -64,15 +45,10 @@
 </script>
 
 <div class="backup-controls">
-  <button onclick={exportData}>Exportar dados</button>
+  <button onclick={exportBackup}>Exportar tudo</button>
   <label class="file-button">
-    Importar dados
-    <input type="file" accept="application/json" onchange={importData} />
-  </label>
-  <button onclick={exportConfig}>Exportar config</button>
-  <label class="file-button">
-    Importar config
-    <input type="file" accept="application/json" onchange={importConfig} />
+    Importar
+    <input type="file" accept="application/json" onchange={importBackup} />
   </label>
 </div>
 
