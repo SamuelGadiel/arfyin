@@ -402,3 +402,13 @@ Usuário revisou a versão anterior ao vivo e trouxe 3 pontos:
 Validado ao vivo: (1) clique sintético num `<span class="count">` do header (área neutra, sem handler próprio) confirmado via `LIST_GROUPS` alternando `collapsed` corretamente; clique no botão do nome confirmado SEM alterar `collapsed` (stopPropagation funcionando); (2) `dataTransfer.setDragImage` interceptado capturou o `style` completo do clone, confirmando os 3 atributos pedidos; (3) medição direta via `getBoundingClientRect()`: centro do gap (`(top+bottom)/2`) bateu **exatamente** com o centro do espaço real entre os dois cards vizinhos (ambos em `280px`, sem nenhuma diferença de arredondamento). Nenhum clone órfão deixado no DOM depois do teste.
 
 Testes: 89 passando. `npx svelte-check --threshold error`: 0 erros (voltou ao baseline de 8 warnings depois de adicionar `role="button"`/`tabindex`/`onkeydown` no header). Build limpo.
+
+## 2026-11-24 (continuação) — cursor do header: normal em repouso, pointer na seta, "mãozinha fechada" só durante o arraste real
+
+Usuário especificou o comportamento de cursor esperado: (1) mouse parado sobre o container → cursor normal (não "grab" o tempo todo, que estava anunciando "arrastável" sem necessidade); (2) mouse sobre a setinha de colapsar → cursor de clique; (3) clicar em qualquer área, mesmo com cursor normal, continua colapsando/expandindo; (4) clicar-e-arrastar mostra a "mãozinha fechada" só enquanto o arraste de fato acontece.
+
+`.group-header` trocou `cursor: grab` fixo por `cursor: auto` em repouso. Nova classe `.dragging` (via `class:dragging={groupDragState.draggingGroupId === group.id}`, reaproveitando o estado já existente do reorder) aplica `cursor: grabbing` só enquanto aquele grupo específico está sendo arrastado de verdade. `.collapse-toggle` (a seta, hoje um `<span>` decorativo já que o clique é tratado pelo header via bubbling) ganhou `cursor: pointer` isolado — mostra a intenção de clique ali sem prometer isso no resto do header.
+
+Validado ao vivo (depois de corrigir um erro de seletor no próprio teste — `document.querySelector('.group-header')` sem filtro pega o PRIMEIRO da página, que é `LiveWindowSection` "Janela 1", não um `GroupItem`; a classe `.group-header` é compartilhada entre os dois componentes, escopados por hashes diferentes do Svelte que `querySelector` ignora): `getComputedStyle` confirmou `cursor: auto` em repouso, `cursor: pointer` na seta, e `cursor: grabbing` + classe `.dragging` presente durante um `dragstart` real, voltando a `auto`/sem a classe depois do `dragend`.
+
+Testes: 89 passando (mudança é só CSS + uma classe reativa, sem lógica nova). `npx svelte-check --threshold error`: 0 erros. Build limpo.

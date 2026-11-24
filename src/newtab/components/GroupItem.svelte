@@ -205,6 +205,7 @@
 >
   <header
     class="group-header"
+    class:dragging={groupDragState.draggingGroupId === group.id}
     draggable="true"
     ondragstart={handleGroupDragStart}
     ondragend={handleGroupDragEnd}
@@ -316,14 +317,18 @@
     font-size: 14px;
     font-weight: 600;
     padding: 6px 0;
-    cursor: grab;
+    /* Cursor normal em repouso — o fato de ser arrastavel nao precisa ser
+       anunciado o tempo todo. So "mãozinha fechada" quando o arraste de fato
+       comecou (.dragging, setado via groupDragState no dragstart/dragend). */
+    cursor: auto;
   }
-  .group-header:active {
+  .group-header.dragging {
     cursor: grabbing;
   }
   .collapse-toggle {
     display: flex;
     opacity: 0.7;
+    cursor: pointer;
   }
   .icon {
     display: flex;
