@@ -17,6 +17,10 @@
   let style = $derived(store.config.tabManagerStyle);
   let collapsed = $state(false);
   let showCloseConfirm = $state(false);
+  // So controla o cursor (grabbing) deste proprio header durante o arraste —
+  // diferente do reorder de grupos, janelas nao tem gap entre si nem outros
+  // headers precisam saber disso, entao nao precisa de estado compartilhado.
+  let isDragging = $state(false);
 
   onMount(() => {
     getWindowCollapsed(window.windowId).then((c) => (collapsed = c));
@@ -27,7 +31,31 @@
     setWindowCollapsed(window.windowId, collapsed);
   }
 
+  // Mesmo padrao do GroupItem: clona a section inteira pra um ghost fiel
+  // (borda arredondada, cor, tamanho), em vez do snapshot nativo que so
+  // capturaria a area do header.
+  function setWindowDragGhostImage(event: DragEvent, sectionEl: HTMLElement) {
+    const rect = sectionEl.getBoundingClientRect();
+    const clone = sectionEl.cloneNode(true) as HTMLElement;
+    Object.assign(clone.style, {
+      position: "fixed",
+      top: "-2000px",
+      left: "-2000px",
+      width: `${rect.width}px`,
+      margin: "0",
+      pointerEvents: "none",
+      boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+    });
+    document.body.appendChild(clone);
+
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    event.dataTransfer?.setDragImage(clone, offsetX, offsetY);
+    setTimeout(() => clone.remove(), 0);
+  }
+
   function handleDragStart(event: DragEvent) {
+    isDragging = true;
     setDragPayload(event, {
       kind: "live-window",
       windowId: window.windowId,
@@ -39,6 +67,17 @@
         faviconUrl,
       })),
     });
+    // Sem override de effectAllowed aqui (fica "all", o generico de
+    // setDragPayload): diferente do reorder de grupo, aqui o Option (⌥)
+    // precisa continuar funcionando de verdade pra fechar a janela original
+    // ao salvar — restringir pra "move" quebraria esse fluxo de novo.
+
+    const sectionEl = (event.currentTarget as HTMLElement).closest(".group") as HTMLElement;
+    setWindowDragGhostImage(event, sectionEl);
+  }
+
+  function handleDragEnd() {
+    isDragging = false;
   }
 
   function closeWindow() {
@@ -49,6 +88,10 @@
 <section class="group" style:background={style.containerColor} style:border-radius="{style.containerRadius}px">
   <header
     class="group-header"
+    class:dragging={isDragging}
+    draggable="true"
+    ondragstart={handleDragStart}
+    ondragend={handleDragEnd}
     onclick={toggleCollapsed}
     onkeydown={(e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -58,18 +101,13 @@
     }}
     tabindex="0"
     role="button"
-    title="Clique para colapsar/expandir"
-    aria-label={`Janela ${index + 1} — clique para colapsar ou expandir`}
+    title="Clique para colapsar/expandir. Arraste para salvar a janela inteira num grupo. Segure Option (⌥) ao soltar para fechar a janela original."
+    aria-label={`Janela ${index + 1} — clique para colapsar ou expandir, arraste para salvar num grupo`}
   >
     <span class="collapse-toggle">
       <Icon name={collapsed ? "chevron-down" : "chevron-up"} size={14} />
     </span>
-    <h3
-      class="name"
-      draggable="true"
-      ondragstart={handleDragStart}
-      title="Arraste para salvar a janela inteira num grupo. Segure Option (⌥) ao soltar para fechar a janela original."
-    >
+    <h3 class="name">
       Janela {index + 1}
     </h3>
     <span class="count">{window.tabs.length}</span>
@@ -119,6 +157,10 @@
     font-size: 14px;
     font-weight: 600;
     padding: 6px 0;
+    cursor: auto;
+  }
+  .group-header.dragging {
+    cursor: grabbing;
   }
   .collapse-toggle {
     display: flex;
@@ -128,7 +170,7 @@
   .name {
     margin: 0;
     font: inherit;
-    cursor: grab;
+    cursor: inherit;
   }
   .count {
     font-size: 11px;
