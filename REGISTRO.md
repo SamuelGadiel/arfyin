@@ -346,3 +346,17 @@ Corrigido trocando `effectAllowed` de `"move"` para `"all"` (permite copy/move/l
 **Não validado via teste automatizado** (a limitação do parágrafo acima se aplica à própria verificação: não dá pra reproduzir essa rejeição nativa via `dispatchEvent`) — fix aplicado com base em diagnóstico técnico bem fundamentado pelos sintomas relatados, pendente de confirmação do usuário testando o gesto real de novo.
 
 `npx svelte-check --threshold error`: 0 erros. 89 testes passando (sem novos — mudança não tem cobertura possível pelas ferramentas de teste disponíveis). Build limpo, extensão recarregada.
+
+## 2026-11-23 (continuação) — diagnóstico final por instrumentação ao vivo: **Command nunca vai funcionar aqui, é limitação do Chrome no macOS**
+
+O fix do `effectAllowed` não resolveu — usuário testou de novo com Command e continuou sem funcionar. Diagnóstico via teste sintético tinha uma cegueira estrutural (não reproduz rejeição de drop a nível de SO), então desta vez instrumentei o fluxo real com `console.log` temporários em todos os pontos do drag (`dragstart` em `LiveTabItem`, `dragenter`/`dragleave`/`drop` em `GroupItem` e `UngroupedSection`, um listener global de `dragend` em `App.svelte`) e pedi pro usuário repetir o gesto real de propósito, lendo o console ao vivo via `chrome-devtools` MCP (sem precisar ele copiar nada manualmente).
+
+Resultado, direto do console do usuário:
+- **Com Command pressionado** (2 tentativas): `dragenter` reporta `effectAllowed: "none"`, `dropEffect: "none"` — o evento `drop` **nunca dispara**, só uma sequência de `dragenter`/`dragleave` terminando em `dragend` (o navegador trata como "não é permitido soltar aqui" e cancela).
+- **Sem nenhuma tecla** (mesma sessão, para comparação): `effectAllowed: "all"` (confirma que o fix do commit anterior está aplicado e correto) e `dropEffect: "copy"` — `drop` dispara normalmente, payload lido certo.
+
+Conclusão: `effectAllowed` nunca foi o problema restante — o **próprio Chrome sobrescreve esse valor para `"none"` sempre que detecta Command pressionado durante um arraste no macOS**, independente do que o site configura em `dragstart`. Command simplesmente não tem mapeamento de operação de Drag and Drop reconhecido pelo WebKit/Chromium nessa plataforma (diferente de Option, que o SO mapeia para `"copy"` — por isso Option sempre funcionou tecnicamente, inclusive antes do fix do `effectAllowed`, e com o `"all"` agora também tem o efeito aceito de forma limpa). É uma limitação de plataforma, não um bug de código — não existe configuração em JS que contorne isso.
+
+Revertido `event.metaKey || event.ctrlKey` de volta para `event.altKey` em `GroupItem.svelte`/`UngroupedSection.svelte`, tooltips dos 3 locais de volta para "Segure Option (⌥)". Todos os `console.log` de debug removidos (`LiveTabItem.svelte`, `GroupItem.svelte`, `UngroupedSection.svelte`, `App.svelte`) — instrumentação era só para esse diagnóstico pontual.
+
+Testes: 89 passando. `npx svelte-check --threshold error`: 0 erros. Build limpo, extensão recarregada. Pendente: usuário confirmar que Option funciona de verdade agora com o `effectAllowed: "all"` em vigor (nunca tinha testado Option depois desse fix — só antes dele, e só Command depois).
