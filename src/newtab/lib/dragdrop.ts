@@ -36,7 +36,17 @@ export type DragPayload = SavedTabDragPayload | LiveTabDragPayload | LiveWindowD
 
 export function setDragPayload(event: DragEvent, payload: DragPayload): void {
   event.dataTransfer?.setData(MIME_TYPE, JSON.stringify(payload));
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  // "move" restringia o drag a UM unico efeito nativo. No macOS, segurar uma
+  // tecla modificadora durante o arraste (Option, Command, Control) faz o SO
+  // tentar aplicar um dropEffect diferente (tipicamente "copy") — se esse
+  // efeito nao estiver entre os permitidos aqui, o Chrome rejeita o drop
+  // silenciosamente (nenhum evento 'drop' chega a disparar no DOM, o item so
+  // "volta" pro lugar). Reproduz exatamente o relato do usuario: sem tecla
+  // funciona (dropEffect default bate com "move"), com qualquer tecla falha.
+  // "all" permite copy/move/link e deixa de depender de qual tecla o SO
+  // mapeia pra qual efeito — o app ja le o estado real da tecla direto do
+  // evento (`event.altKey`/`metaKey`) no handler de drop, nunca do dropEffect.
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = "all";
 }
 
 export function readDragPayload(event: DragEvent): DragPayload | null {

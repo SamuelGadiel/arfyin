@@ -332,3 +332,17 @@ Usuário testou com a tecla certa (Option) mesmo assim e reportou que arrastar p
 `event.altKey` trocado por `event.metaKey || event.ctrlKey` (mesmo padrão de "modificador de ação secundária" já usado em `App.svelte`) em `GroupItem.svelte` e `UngroupedSection.svelte`. Tooltips dos 3 locais (`GroupItem`, `UngroupedSection`, `LiveWindowSection`) atualizados de "Segure Option (⌥)" para "Segure Command (⌘)". Validado ao vivo repetindo o teste anterior, agora com `metaKey: true` no evento de `drop`: aba adicionada em "Sem categoria" **e** aba viva original fechada (`chrome.tabs.query` confirmou 0 abas abertas depois). Dados de teste (abas e entradas salvas de `example.com`) removidos ao final.
 
 Testes: 89 passando. `npx svelte-check --threshold error`: 0 erros. Build limpo.
+
+## 2026-11-23 (continuação) — causa raiz real encontrada: `effectAllowed: "move"` rejeitava o drop com QUALQUER tecla modificadora
+
+Usuário testou de novo com Command e relatou o padrão exato que faltava pra fechar o diagnóstico: **sem nenhuma tecla, o drop funciona perfeitamente** (adiciona no grupo, não fecha a aba — o comportamento default esperado); **com a tecla modificadora pressionada (já tinha testado Option antes, agora confirmado também com Command), o drop simplesmente não acontece** — nem adiciona, nem fecha, nada.
+
+Isso não é sobre qual tecla usar — é incompatível com qualquer tecla. Causa raiz real em `dragdrop.ts:39`: `event.dataTransfer.effectAllowed = "move"` restringe o HTML5 Drag and Drop a um único efeito nativo permitido. No macOS, segurar uma tecla modificadora durante um arraste faz o sistema operacional tentar aplicar um `dropEffect` diferente de "move" (tipicamente "copy") — como "copy" nunca estava entre os efeitos permitidos (só "move"), o Chrome rejeita o drop **silenciosamente a nível de sistema**, antes mesmo do evento `drop` chegar a disparar no DOM. Bate exatamente com os dois sintomas relatados: funciona sem tecla (dropEffect default = "move", permitido) e falha com qualquer tecla (dropEffect vira algo != "move", rejeitado).
+
+Isso também explica por que os testes anteriores (via `dispatchEvent` sintético direto no DOM) sempre "passavam" mesmo com o bug presente: disparar o evento `drop` manualmente no JS pula completamente essa camada nativa do SO que decide se aceita o drop — só reproduz (e valida) a lógica do handler, nunca o gatilho nativo em si. Registrado aqui como limitação de método: esse tipo de teste sintético não cobre rejeição em nível de SO/navegador para drag nativo.
+
+Corrigido trocando `effectAllowed` de `"move"` para `"all"` (permite copy/move/link) — o app nunca dependeu do `dropEffect` do navegador pra decidir o que fazer, sempre leu o estado real da tecla direto do evento (`event.altKey`/`metaKey`/`ctrlKey`) dentro do handler de `drop`, então liberar mais efeitos nativos não muda nenhuma lógica, só para de rejeitar o gesto antes de chegar lá.
+
+**Não validado via teste automatizado** (a limitação do parágrafo acima se aplica à própria verificação: não dá pra reproduzir essa rejeição nativa via `dispatchEvent`) — fix aplicado com base em diagnóstico técnico bem fundamentado pelos sintomas relatados, pendente de confirmação do usuário testando o gesto real de novo.
+
+`npx svelte-check --threshold error`: 0 erros. 89 testes passando (sem novos — mudança não tem cobertura possível pelas ferramentas de teste disponíveis). Build limpo, extensão recarregada.
