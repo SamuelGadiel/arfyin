@@ -61,11 +61,15 @@
 
 <style>
   .group-gap {
-    height: 6px;
+    /* Agora e o unico responsavel pelo espacamento entre cards (os `.group`
+       perderam o `margin-bottom` que tinham) — assim a linha de insercao
+       abaixo fica centralizada no espaco visual real entre os dois cards
+       vizinhos, nao descentralizada numa fracao dele. */
+    height: 12px;
   }
   .group-gap.active {
-    height: 20px;
-    margin: -7px 0;
+    height: 24px;
+    margin: -6px 0;
     position: relative;
     z-index: 1;
   }

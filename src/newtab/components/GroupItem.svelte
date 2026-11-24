@@ -52,6 +52,31 @@
     }
   }
 
+  // O navegador, por padrao, so captura um "print" da area do ELEMENTO
+  // ARRASTAVEL em si (o <header>, nao a section inteira) — perde a borda
+  // arredondada/cor/padding do card real. Clona a section `.group` inteira
+  // (os estilos inline de background/border-radius/border-left-color ja vem
+  // junto no clone, sao atributos HTML normais) pra um card fiel ao real.
+  function setGroupDragGhostImage(event: DragEvent, groupEl: HTMLElement) {
+    const rect = groupEl.getBoundingClientRect();
+    const clone = groupEl.cloneNode(true) as HTMLElement;
+    Object.assign(clone.style, {
+      position: "fixed",
+      top: "-2000px",
+      left: "-2000px",
+      width: `${rect.width}px`,
+      margin: "0",
+      pointerEvents: "none",
+      boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+    });
+    document.body.appendChild(clone);
+
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    event.dataTransfer?.setDragImage(clone, offsetX, offsetY);
+    setTimeout(() => clone.remove(), 0);
+  }
+
   function handleGroupDragStart(event: DragEvent) {
     groupDragState.draggingGroupId = group.id;
     setDragPayload(event, { kind: "group", groupId: group.id });
@@ -60,6 +85,9 @@
     // o cursor mostra "+" durante o arraste, dando a entender (errado) que o
     // grupo vai ser adicionado dentro de outro em vez de so trocar de posicao.
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+
+    const groupEl = (event.currentTarget as HTMLElement).closest(".group") as HTMLElement;
+    setGroupDragGhostImage(event, groupEl);
   }
 
   function handleGroupDragEnd() {
@@ -180,29 +208,56 @@
     draggable="true"
     ondragstart={handleGroupDragStart}
     ondragend={handleGroupDragEnd}
-    title="Arraste para reordenar este grupo"
-    role="group"
-    aria-label={`Cabeçalho do grupo ${group.name}, arrastável para reordenar`}
+    onclick={toggleCollapsed}
+    onkeydown={(e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleCollapsed();
+      }
+    }}
+    tabindex="0"
+    title="Clique para colapsar/expandir. Arraste para reordenar este grupo."
+    role="button"
+    aria-label={`Cabeçalho do grupo ${group.name} — clique para colapsar ou expandir, arraste para reordenar`}
   >
-    <button
-      class="collapse-toggle"
-      onclick={toggleCollapsed}
-      title={group.collapsed ? "Expandir" : "Colapsar"}
-      aria-label={group.collapsed ? "Expandir grupo" : "Colapsar grupo"}
-    >
+    <span class="collapse-toggle">
       <Icon name={group.collapsed ? "chevron-down" : "chevron-up"} size={14} />
-    </button>
+    </span>
     {#if group.icon}<span class="icon"><Icon name={group.icon} size={15} /></span>{/if}
-    <button class="name" ondblclick={() => (showEditDialog = true)}>{group.name}</button>
+    <button class="name" onclick={(e) => e.stopPropagation()} ondblclick={() => (showEditDialog = true)}>{group.name}</button>
     <span class="count">{tabs.length}</span>
     <span class="spacer"></span>
-    <button class="icon-button" onclick={openAll} title="Abrir todas as abas (sem foco)" aria-label="Abrir todas as abas sem foco">
+    <button
+      class="icon-button"
+      onclick={(e) => {
+        e.stopPropagation();
+        openAll();
+      }}
+      title="Abrir todas as abas (sem foco)"
+      aria-label="Abrir todas as abas sem foco"
+    >
       <Icon name="external-link" size={15} />
     </button>
-    <button class="icon-button" onclick={() => (showEditDialog = true)} title="Editar grupo" aria-label="Editar nome, cor e ícone do grupo">
+    <button
+      class="icon-button"
+      onclick={(e) => {
+        e.stopPropagation();
+        showEditDialog = true;
+      }}
+      title="Editar grupo"
+      aria-label="Editar nome, cor e ícone do grupo"
+    >
       <Icon name="pencil" size={15} />
     </button>
-    <button class="icon-button" onclick={remove} title="Apagar grupo" aria-label="Apagar grupo">
+    <button
+      class="icon-button"
+      onclick={(e) => {
+        e.stopPropagation();
+        remove();
+      }}
+      title="Apagar grupo"
+      aria-label="Apagar grupo"
+    >
       <Icon name="trash" size={15} />
     </button>
   </header>
@@ -241,7 +296,10 @@
   .group {
     border-left: 3px solid transparent;
     padding: 4px 10px 8px;
-    margin-bottom: 12px;
+    /* Sem margin-bottom: o espacamento entre grupos agora e 100% responsabilidade
+       do GroupDropGap (senao a linha de insercao do reorder fica descentralizada
+       em relacao ao espaco visual real entre os cards — metade desse espaco
+       era essa margin, que o gap nao "enxergava"). */
   }
   .group.drag-over {
     /* Relatado como discreto demais — contorno mais grosso/opaco + um tingimento
@@ -264,9 +322,6 @@
     cursor: grabbing;
   }
   .collapse-toggle {
-    background: none;
-    border: none;
-    cursor: pointer;
     display: flex;
     opacity: 0.7;
   }

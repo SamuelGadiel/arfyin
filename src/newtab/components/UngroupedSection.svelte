@@ -144,7 +144,8 @@
   .group {
     border-left: 3px solid transparent;
     padding: 4px 10px 8px;
-    margin-bottom: 12px;
+    /* Sem margin-bottom: o espacamento ate o proximo item e responsabilidade
+       do GroupDropGap logo depois (ver GroupItem.svelte para o porque). */
   }
   .group.drag-over {
     /* Relatado como discreto demais — contorno mais grosso/opaco + um tingimento
