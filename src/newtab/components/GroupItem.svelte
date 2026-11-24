@@ -3,6 +3,7 @@
   import { store } from "../lib/store.svelte";
   import { readDragPayload, setDragPayload } from "../lib/dragdrop";
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
+  import { groupDragState } from "../lib/groupDragState.svelte";
   import TabItem from "./TabItem.svelte";
   import Icon from "./Icon.svelte";
   import GroupDialog from "./GroupDialog.svelte";
@@ -52,7 +53,17 @@
   }
 
   function handleGroupDragStart(event: DragEvent) {
+    groupDragState.draggingGroupId = group.id;
     setDragPayload(event, { kind: "group", groupId: group.id });
+    // Reordenar nunca e uma copia — sobrescreve o "all" generico de
+    // setDragPayload (que existe pro caso de abas vivas + Option). Sem isto,
+    // o cursor mostra "+" durante o arraste, dando a entender (errado) que o
+    // grupo vai ser adicionado dentro de outro em vez de so trocar de posicao.
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleGroupDragEnd() {
+    groupDragState.draggingGroupId = null;
   }
 
   function indexForDrop(event: DragEvent): number {
@@ -66,7 +77,10 @@
   function handleDragEnter(event: DragEvent) {
     event.preventDefault();
     dragDepth++;
-    isDragOver = true;
+    // Sem highlight de "soltar aba aqui dentro" quando o que esta sendo
+    // arrastado e OUTRO GRUPO — esse feedback e so para abas, e os gaps entre
+    // grupos (GroupDropGap) ja cobrem o feedback visual de reordenar.
+    if (!groupDragState.draggingGroupId) isDragOver = true;
   }
 
   function handleDragOver(event: DragEvent) {
@@ -161,7 +175,15 @@
   aria-label={group.name}
   title="Arraste uma aba aqui para salvá-la. Segure Option (⌥) ao soltar para fechar a aba original."
 >
-  <header class="group-header">
+  <header
+    class="group-header"
+    draggable="true"
+    ondragstart={handleGroupDragStart}
+    ondragend={handleGroupDragEnd}
+    title="Arraste para reordenar este grupo"
+    role="group"
+    aria-label={`Cabeçalho do grupo ${group.name}, arrastável para reordenar`}
+  >
     <button
       class="collapse-toggle"
       onclick={toggleCollapsed}
@@ -171,13 +193,7 @@
       <Icon name={group.collapsed ? "chevron-down" : "chevron-up"} size={14} />
     </button>
     {#if group.icon}<span class="icon"><Icon name={group.icon} size={15} /></span>{/if}
-    <button
-      class="name"
-      draggable="true"
-      ondragstart={handleGroupDragStart}
-      ondblclick={() => (showEditDialog = true)}
-      title="Arraste para reordenar este grupo"
-    >{group.name}</button>
+    <button class="name" ondblclick={() => (showEditDialog = true)}>{group.name}</button>
     <span class="count">{tabs.length}</span>
     <span class="spacer"></span>
     <button class="icon-button" onclick={openAll} title="Abrir todas as abas (sem foco)" aria-label="Abrir todas as abas sem foco">
@@ -242,6 +258,10 @@
     font-size: 14px;
     font-weight: 600;
     padding: 6px 0;
+    cursor: grab;
+  }
+  .group-header:active {
+    cursor: grabbing;
   }
   .collapse-toggle {
     background: none;
@@ -260,7 +280,7 @@
     color: inherit;
     font: inherit;
     font-weight: 600;
-    cursor: default;
+    cursor: inherit;
     padding: 0;
     text-align: left;
   }

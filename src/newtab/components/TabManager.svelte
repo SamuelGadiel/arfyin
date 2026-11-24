@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
   import GroupItem from "./GroupItem.svelte";
+  import GroupDropGap from "./GroupDropGap.svelte";
   import UngroupedSection from "./UngroupedSection.svelte";
   import SyncStatusBanner from "./SyncStatusBanner.svelte";
   import LiveWindows from "./LiveWindows.svelte";
@@ -42,8 +43,10 @@
         {#if store.config.ungroupedEnabled}
           <UngroupedSection />
         {/if}
-        {#each sortedGroups as group (group.id)}
+        <GroupDropGap index={0} />
+        {#each sortedGroups as group, i (group.id)}
           <GroupItem {group} />
+          <GroupDropGap index={i + 1} />
         {/each}
         <button class="create-group" onclick={() => (showCreateDialog = true)}>
           <Icon name="add" size={14} /> Novo grupo

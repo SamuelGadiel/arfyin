@@ -2,6 +2,7 @@
   import { store } from "../lib/store.svelte";
   import { readDragPayload } from "../lib/dragdrop";
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
+  import { groupDragState } from "../lib/groupDragState.svelte";
   import TabItem from "./TabItem.svelte";
   import Icon from "./Icon.svelte";
 
@@ -26,7 +27,9 @@
   function handleDragEnter(event: DragEvent) {
     event.preventDefault();
     dragDepth++;
-    isDragOver = true;
+    // "Sem categoria" nao e um grupo reordenavel — nunca mostra o highlight
+    // de "soltar aqui dentro" quando o que esta sendo arrastado e um grupo.
+    if (!groupDragState.draggingGroupId) isDragOver = true;
   }
 
   function handleDragOver(event: DragEvent) {
