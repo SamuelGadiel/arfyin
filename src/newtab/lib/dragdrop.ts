@@ -32,7 +32,18 @@ export interface LiveTabsBatchDragPayload {
   tabs: Omit<LiveTabDragPayload, "kind">[];
 }
 
-export type DragPayload = SavedTabDragPayload | LiveTabDragPayload | LiveWindowDragPayload | LiveTabsBatchDragPayload;
+/** Arrastar o grupo inteiro (pelo header) para reordenar sua posicao entre os outros grupos. */
+export interface GroupDragPayload {
+  kind: "group";
+  groupId: string;
+}
+
+export type DragPayload =
+  | SavedTabDragPayload
+  | LiveTabDragPayload
+  | LiveWindowDragPayload
+  | LiveTabsBatchDragPayload
+  | GroupDragPayload;
 
 export function setDragPayload(event: DragEvent, payload: DragPayload): void {
   event.dataTransfer?.setData(MIME_TYPE, JSON.stringify(payload));

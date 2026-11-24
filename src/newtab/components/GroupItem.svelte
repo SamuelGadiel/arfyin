@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Group } from "@/shared/types";
   import { store } from "../lib/store.svelte";
-  import { readDragPayload } from "../lib/dragdrop";
+  import { readDragPayload, setDragPayload } from "../lib/dragdrop";
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
   import TabItem from "./TabItem.svelte";
   import Icon from "./Icon.svelte";
@@ -26,6 +26,11 @@
   // verdade do container, nao so trocou de filho por dentro).
   let dragDepth = 0;
   let style = $derived(store.config.tabManagerStyle);
+  // Posicao deste grupo entre os outros (mesma ordenacao usada pelo
+  // TabManager) — ao soltar um grupo arrastado aqui, essa e a posicao que ele
+  // assume (empurra os demais), igual ja funciona para reordenar abas.
+  let sortedGroups = $derived([...store.groups].sort((a, b) => a.order - b.order));
+  let myIndex = $derived(sortedGroups.findIndex((g) => g.id === group.id));
 
   function toggleCollapsed() {
     store.setCollapsed(group.id, !group.collapsed);
@@ -44,6 +49,10 @@
     for (const tab of tabs) {
       chrome.tabs.create({ url: tab.url, active: false });
     }
+  }
+
+  function handleGroupDragStart(event: DragEvent) {
+    setDragPayload(event, { kind: "group", groupId: group.id });
   }
 
   function indexForDrop(event: DragEvent): number {
@@ -77,6 +86,11 @@
     isDragOver = false;
     const payload = readDragPayload(event);
     if (!payload) return;
+
+    if (payload.kind === "group") {
+      if (payload.groupId !== group.id) store.reorderGroup(payload.groupId, myIndex);
+      return;
+    }
 
     const index = indexForDrop(event);
     const shouldCloseOriginal = event.altKey;
@@ -157,7 +171,13 @@
       <Icon name={group.collapsed ? "chevron-down" : "chevron-up"} size={14} />
     </button>
     {#if group.icon}<span class="icon"><Icon name={group.icon} size={15} /></span>{/if}
-    <button class="name" ondblclick={() => (showEditDialog = true)}>{group.name}</button>
+    <button
+      class="name"
+      draggable="true"
+      ondragstart={handleGroupDragStart}
+      ondblclick={() => (showEditDialog = true)}
+      title="Arraste para reordenar este grupo"
+    >{group.name}</button>
     <span class="count">{tabs.length}</span>
     <span class="spacer"></span>
     <button class="icon-button" onclick={openAll} title="Abrir todas as abas (sem foco)" aria-label="Abrir todas as abas sem foco">
