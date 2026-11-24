@@ -412,3 +412,13 @@ Usuário especificou o comportamento de cursor esperado: (1) mouse parado sobre 
 Validado ao vivo (depois de corrigir um erro de seletor no próprio teste — `document.querySelector('.group-header')` sem filtro pega o PRIMEIRO da página, que é `LiveWindowSection` "Janela 1", não um `GroupItem`; a classe `.group-header` é compartilhada entre os dois componentes, escopados por hashes diferentes do Svelte que `querySelector` ignora): `getComputedStyle` confirmou `cursor: auto` em repouso, `cursor: pointer` na seta, e `cursor: grabbing` + classe `.dragging` presente durante um `dragstart` real, voltando a `auto`/sem a classe depois do `dragend`.
 
 Testes: 89 passando (mudança é só CSS + uma classe reativa, sem lógica nova). `npx svelte-check --threshold error`: 0 erros. Build limpo.
+
+## 2026-11-24 (continuação) — mesmo "clique em qualquer área colapsa" levado para a coluna de abas abertas (LiveWindowSection)
+
+Usuário pediu explicitamente para levar só UM dos ajustes da coluna de grupos para a seção "Janela N" (abas abertas): clicar em qualquer área do header deveria colapsar/expandir, não só na setinha — sem pedir o resto (reorder, ghost fiel, cursor grabbing), que não se aplicam aqui (janelas não são reordenáveis, só arrastáveis pra dentro de um grupo).
+
+Mesmo padrão do `GroupItem.svelte`: `onclick={toggleCollapsed}` movido pro `<header class="group-header">`, `.collapse-toggle` virou `<span>` decorativo com `cursor: pointer` isolado, botão de fechar janela ganhou `event.stopPropagation()` (sem isso, fechar a janela também dispararia o toggle do pai por bubbling). `role="button"` + `tabindex="0"` + `onkeydown` (Enter/Space) pra acessibilidade, mesmo padrão já usado no `GroupItem`. O `<h3 class="name" draggable="true">` (arrastar a janela inteira pra um grupo) continua como estava — sem `stopPropagation`, já que clicar nele sem arrastar também deveria colapsar (não tem nenhuma ação própria de clique simples, diferente do nome do grupo que abre o editor no duplo-clique).
+
+Validado ao vivo: clique sintético num `<span class="count">` do header "Janela 1" confirmado alternando a presença de `.group-body` no DOM (colapsa e expande de volta corretamente); clique no botão de fechar janela confirmado SEM alterar o colapso (`stopPropagation` funcionando) — abriu o diálogo de confirmação normalmente, fechado via Escape sem de fato fechar a janela real do usuário.
+
+Testes: 89 passando. `npx svelte-check --threshold error`: 0 erros. Build limpo.

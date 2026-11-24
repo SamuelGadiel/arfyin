@@ -47,15 +47,23 @@
 </script>
 
 <section class="group" style:background={style.containerColor} style:border-radius="{style.containerRadius}px">
-  <header class="group-header">
-    <button
-      class="collapse-toggle"
-      onclick={toggleCollapsed}
-      title={collapsed ? "Expandir" : "Colapsar"}
-      aria-label={collapsed ? "Expandir janela" : "Colapsar janela"}
-    >
+  <header
+    class="group-header"
+    onclick={toggleCollapsed}
+    onkeydown={(e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleCollapsed();
+      }
+    }}
+    tabindex="0"
+    role="button"
+    title="Clique para colapsar/expandir"
+    aria-label={`Janela ${index + 1} — clique para colapsar ou expandir`}
+  >
+    <span class="collapse-toggle">
       <Icon name={collapsed ? "chevron-down" : "chevron-up"} size={14} />
-    </button>
+    </span>
     <h3
       class="name"
       draggable="true"
@@ -66,7 +74,15 @@
     </h3>
     <span class="count">{window.tabs.length}</span>
     <span class="spacer"></span>
-    <button class="icon-button" onclick={() => (showCloseConfirm = true)} title="Fechar janela" aria-label="Fechar janela inteira">
+    <button
+      class="icon-button"
+      onclick={(e) => {
+        e.stopPropagation();
+        showCloseConfirm = true;
+      }}
+      title="Fechar janela"
+      aria-label="Fechar janela inteira"
+    >
       <Icon name="x" size={15} />
     </button>
   </header>
@@ -105,11 +121,9 @@
     padding: 6px 0;
   }
   .collapse-toggle {
-    background: none;
-    border: none;
-    cursor: pointer;
     display: flex;
     opacity: 0.7;
+    cursor: pointer;
   }
   .name {
     margin: 0;
