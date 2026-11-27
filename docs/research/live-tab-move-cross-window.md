@@ -32,3 +32,9 @@ Permissão: já coberta por `"tabs"` no manifest (já usado por `chrome.tabs.rem
 ## Próximo passo
 
 Virar SDD (`sdd/ARF-165-167-live-tab-move.md`) antes de implementar — ver card `ARF-165/166/167` no `kanban.md`.
+
+## Validação ao vivo (QA, 2026-11-27) — correções e achados
+
+- **Correção à afirmação da linha 17 acima**: `chrome.tabs.onMoved` (reorder PURO dentro da mesma janela, sem mudar de `windowId`) **não estava** entre os listeners de `liveTabsBroadcast.ts` — só `onAttached`/`onDetached` (cross-window) estavam cobertos. Bug real encontrado na validação ao vivo: reordenar uma aba dentro da mesma janela movia de fato (`chrome.tabs.move` funcionava), mas a UI não se atualizava sozinha (exigia reload manual). Corrigido adicionando `chrome.tabs.onMoved.addListener(...)` em `src/background/liveTabsBroadcast.ts`. Revalidado ao vivo após a correção: reorder dentro da mesma janela agora re-renderiza sozinho.
+- **Aba pinned, confirmado ao vivo**: soltar uma aba não-pinned num índice que cairia dentro da faixa de abas pinned do destino (ex. índice 0 numa janela com 2 pinned) — o Chrome ajusta sozinho o índice final para logo **depois** do bloco de pinned (não lança erro, não torna a aba pinned, não fica intercalada entre pinned). Nenhum código extra necessário — comportamento nativo aceito, confirmado via `chrome.tabs.query` antes/depois num Chrome real (Playwright + extensão carregada via `--load-extension`).
+- Cobertura e2e permanente adicionada em `tests/e2e/live-tab-move.spec.ts` (expansão do ARF-110), reproduzindo via `chrome.tabs.*` reais (não mock) todos os cenários do SDD, incluindo os dois achados acima.

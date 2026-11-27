@@ -11,11 +11,10 @@
 | ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
 | ARF-040 | PERSIST (v2) | Toggle: extensão assume persistência de sessão (desliga restore nativo do Chrome) | D1, D2 |
 | ARF-041 | PERSIST (v2) | Monitoramento em background funcionando sem nenhuma new-tab aberta | D3 |
-| ARF-165/166/167 | LIVE | Mover aba(s) viva(s) entre janelas via drag-and-drop preservando estado (`chrome.tabs.move`, sem close/reopen) + reorder de abas vivas dentro da mesma janela; posição exata no drop, aba sai do tab group nativo do Chrome ao mudar de janela, última aba fecha a janela de origem (comportamento nativo aceito) | [docs/research/live-tab-move-cross-window.md](docs/research/live-tab-move-cross-window.md) |
 
 ## Ready
 
-*(vazio — cards entram aqui quando o SDD correspondente é escrito em `sdd/`)*
+*(vazio)*
 
 ## In Progress
 
@@ -64,3 +63,4 @@
 | ARF-162 | THEME/LIVE | Crédito do Reddit (autor + link direto pro post original, mesmo conceito que já existia pro Unsplash — `BackgroundCandidate.attribution` generalizado com `kind: "unsplash"\|"reddit"`), offset do cursor no drag corrigido (segurar o item pelo meio agora mantém o ponto exato do clique na pré-visualização, em vez de sempre posicionar pelo canto superior esquerdo) | [REGISTRO.md](REGISTRO.md) |
 | ARF-163 | CORE/LIVE/QUICK | Contorno de drop (arrastar aba pra um grupo) bem mais visível (2px opaco + leve tingimento do fundo, antes quase invisível), espaçamento entre switch e slider no drawer de "Acesso rápido", botão novo "virar acesso rápido" em qualquer aba (viva ou salva, solta ou de grupo) ao lado do X — abre o popup "Novo acesso rápido" pré-preenchido (título/URL já prontos pra revisar/editar) quando ainda não é atalho, remove direto quando clicado numa que já é; ícone fica tingido de verde quando já é um atalho | [REGISTRO.md](REGISTRO.md) |
 | ARF-164 | CORE | Reordenar grupos por drag-and-drop manual (arrastar pelo nome do grupo) — pedido explícito do usuário, sem nenhuma ordenação automática. Backend (`reorderGroup`, enfileiramento de sync) já existia pronto desde o ARF-022/027 mas estava órfão desde que a opção de ordenação Manual/Alfabética foi removida no ARF-153; só faltava a UI. Validado ao vivo ponta a ponta incluindo o Supabase (`order`/`updated_at` conferidos direto na tabela via SQL) | [REGISTRO.md](REGISTRO.md) |
+| ARF-165/166/167 | LIVE | Mover aba(s) viva(s) entre janelas via drag-and-drop preservando estado (`chrome.tabs.move`, sem close/reopen) + reorder de abas vivas dentro da mesma janela; posição exata no drop, aba sai do tab group nativo do Chrome ao mudar de janela, última aba fecha a janela de origem (comportamento nativo aceito). Validado ao vivo via Playwright com a extensão carregada de verdade contra janelas/abas reais do Chrome (2 bugs reais encontrados e corrigidos na validação: `onMoved` não escutado em `liveTabsBroadcast.ts` — reorder same-window não re-renderizava sozinho; falha do `chrome.tabs.move` não logava no console). Comportamento de aba pinned confirmado (Chrome ajusta sozinho o índice, sem código extra). Cobertura e2e permanente em `tests/e2e/live-tab-move.spec.ts` | [sdd/ARF-165-167-live-tab-move.md](sdd/ARF-165-167-live-tab-move.md) |

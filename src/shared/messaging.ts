@@ -166,6 +166,17 @@ export interface BootstrapSyncMessage {
   type: "BOOTSTRAP_SYNC";
 }
 
+// Diferente de MoveTabMessage (que move um SavedTab no storage interno):
+// esta move aba(s) viva(s) de verdade via chrome.tabs.move, sem tocar `db`
+// nenhuma — ver ADR-015 em docs/architecture/decisions.md (tratada fora de
+// routeMessage, direto em src/background/index.ts).
+export interface MoveLiveTabMessage {
+  type: "MOVE_LIVE_TAB";
+  tabIds: number[];
+  windowId: number;
+  index: number;
+}
+
 export type ArfyinMessage =
   | PingMessage
   | ListGroupsMessage
@@ -194,7 +205,15 @@ export type ArfyinMessage =
   | DeleteAssetMessage
   | GetBackgroundCacheMessage
   | SetBackgroundCacheMessage
-  | BootstrapSyncMessage;
+  | BootstrapSyncMessage
+  | MoveLiveTabMessage;
+
+// `MOVE_LIVE_TAB` nunca chega em `routeMessage` (ver ADR-015) — interceptado
+// antes, direto em `src/background/index.ts`. Este tipo exclui esse membro da
+// uniao para que o `switch` exaustivo de `routeMessage` continue garantindo,
+// em tempo de compilacao, que toda mensagem roteavel tem um `case` com return
+// — sem precisar de um `default` que mascararia um tipo novo esquecido.
+export type RoutableMessage = Exclude<ArfyinMessage, MoveLiveTabMessage>;
 
 export type ArfyinResponse =
   | PongMessage
@@ -229,7 +248,9 @@ export type ArfyinResponse =
   | { type: "ASSET_DELETED" }
   | { type: "BACKGROUND_CACHE"; entry: BackgroundCacheEntry | null }
   | { type: "BACKGROUND_CACHE_SET" }
-  | { type: "BOOTSTRAP_SYNC_DONE" };
+  | { type: "BOOTSTRAP_SYNC_DONE" }
+  | { type: "LIVE_TAB_MOVED" }
+  | { type: "LIVE_TAB_MOVE_FAILED"; error: string };
 
 function hasType(message: unknown): message is { type: string } {
   return typeof message === "object" && message !== null && "type" in message;
@@ -268,6 +289,7 @@ const MESSAGE_TYPES = {
   GET_BACKGROUND_CACHE: true,
   SET_BACKGROUND_CACHE: true,
   BOOTSTRAP_SYNC: true,
+  MOVE_LIVE_TAB: true,
 } satisfies Record<ArfyinMessage["type"], true>;
 
 export function isArfyinMessage(message: unknown): message is ArfyinMessage {

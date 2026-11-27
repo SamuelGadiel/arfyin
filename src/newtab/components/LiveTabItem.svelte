@@ -3,6 +3,7 @@
   import { store } from "../lib/store.svelte";
   import { setDragPayload } from "../lib/dragdrop";
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
+  import { liveTabDragState } from "../lib/liveTabDragState.svelte";
   import Icon from "./Icon.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
   import QuickAccessDialog from "./QuickAccessDialog.svelte";
@@ -112,14 +113,20 @@
     if (liveSelectionState.active && selected && liveSelectionState.selected.length > 1) {
       const tabs = liveSelectionState.selected.map(toOmitKind);
       setDragPayload(event, { kind: "live-tabs-batch", tabs });
+      liveTabDragState.draggingTabIds = tabs.map((t) => t.chromeTabId);
       const selectedEls = Array.from(document.querySelectorAll<HTMLElement>(".live-tab.selected"));
       setDragGhostImage(event, selectedEls, tabs.length, draggedElement);
       return;
     }
     setDragPayload(event, { kind: "live-tab", ...toOmitKind(tab) });
+    liveTabDragState.draggingTabIds = [tab.chromeTabId];
     // Mesmo tratamento pro item unico — ver nota acima: sem isto o navegador
     // usaria o snapshot nativo (com o papel de parede transparecendo atras).
     setDragGhostImage(event, [draggedElement], 1, draggedElement);
+  }
+
+  function handleDragEnd() {
+    liveTabDragState.draggingTabIds = null;
   }
 
   function handleClick() {
@@ -161,7 +168,14 @@
   }
 </script>
 
-<div class="live-tab" class:selected draggable="true" ondragstart={handleDragStart} role="listitem">
+<div
+  class="live-tab"
+  class:selected
+  draggable="true"
+  ondragstart={handleDragStart}
+  ondragend={handleDragEnd}
+  role="listitem"
+>
   <button class="tab-link" onclick={handleClick} title={tab.url}>
     {#if liveSelectionState.active}
       <span class="checkbox"><Icon name={selected ? "square-check" : "square"} size={18} /></span>

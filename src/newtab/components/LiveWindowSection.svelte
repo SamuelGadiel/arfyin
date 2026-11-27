@@ -2,9 +2,13 @@
   import { onMount } from "svelte";
   import type { LiveWindow } from "@/shared/types";
   import { store } from "../lib/store.svelte";
-  import { setDragPayload } from "../lib/dragdrop";
+  import { setDragPayload, readDragPayload } from "../lib/dragdrop";
   import { getWindowCollapsed, setWindowCollapsed } from "../lib/windowCollapseState";
+  import { liveTabDragState } from "../lib/liveTabDragState.svelte";
+  import { liveSelectionState } from "../lib/liveSelectionState.svelte";
+  import { computeLiveDropIndex } from "../lib/liveTabDrop";
   import LiveTabItem from "./LiveTabItem.svelte";
+  import LiveTabDropGap from "./LiveTabDropGap.svelte";
   import Icon from "./Icon.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
@@ -83,9 +87,46 @@
   function closeWindow() {
     chrome.windows.remove(window.windowId);
   }
+
+  // Fallback de robustez (mesmo espirito do fix do ARF-154 "drop sem item
+  // especifico sob o cursor insere no fim"): se o drop nao foi capturado por
+  // nenhum LiveTabDropGap (bubbling chegou ate a section — ex. solto sobre o
+  // corpo de um LiveTabItem, que nao tem drop handler proprio), insere no fim.
+  function handleSectionDragOver(event: DragEvent) {
+    if (!liveTabDragState.draggingTabIds) return;
+    event.preventDefault();
+  }
+
+  function handleSectionDrop(event: DragEvent) {
+    if (!liveTabDragState.draggingTabIds) return;
+    event.preventDefault();
+    const payload = readDragPayload(event);
+    if (!payload) return;
+    if (payload.kind !== "live-tab" && payload.kind !== "live-tabs-batch") return;
+
+    const tabIds =
+      payload.kind === "live-tab" ? [payload.chromeTabId] : payload.tabs.map((t) => t.chromeTabId);
+    const targetIndex = computeLiveDropIndex(window.tabs, window.tabs.length, tabIds);
+    // Mesmo motivo do LiveTabDropGap: sendResponse sempre resolve (nunca
+    // rejeita), sem este .then uma falha real nunca apareceria no console.
+    chrome.runtime
+      .sendMessage({ type: "MOVE_LIVE_TAB", tabIds, windowId: window.windowId, index: targetIndex })
+      .then((res) => {
+        if (res?.type === "LIVE_TAB_MOVE_FAILED") console.error("[arfyin] MOVE_LIVE_TAB falhou:", res.error);
+      });
+    if (payload.kind === "live-tabs-batch") liveSelectionState.disable();
+  }
 </script>
 
-<section class="group" style:background={style.containerColor} style:border-radius="{style.containerRadius}px">
+<section
+  class="group"
+  style:background={style.containerColor}
+  style:border-radius="{style.containerRadius}px"
+  ondragover={handleSectionDragOver}
+  ondrop={handleSectionDrop}
+  role="group"
+  aria-label={`Janela ${index + 1}`}
+>
   <header
     class="group-header"
     class:dragging={isDragging}
@@ -127,8 +168,10 @@
 
   {#if !collapsed}
     <div class="group-body" role="list">
-      {#each window.tabs as tab (tab.chromeTabId)}
+      <LiveTabDropGap windowId={window.windowId} index={0} tabs={window.tabs} />
+      {#each window.tabs as tab, i (tab.chromeTabId)}
         <LiveTabItem {tab} />
+        <LiveTabDropGap windowId={window.windowId} index={i + 1} tabs={window.tabs} />
       {/each}
     </div>
   {/if}

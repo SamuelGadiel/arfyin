@@ -32,6 +32,12 @@ export function registerLiveTabsBroadcast(): void {
   chrome.tabs.onUpdated.addListener(() => void broadcast());
   chrome.tabs.onAttached.addListener(() => void broadcast());
   chrome.tabs.onDetached.addListener(() => void broadcast());
+  // Reorder PURO dentro da mesma janela (chrome.tabs.move com o mesmo
+  // windowId) só dispara `onMoved` — `onAttached`/`onDetached` só ocorrem em
+  // moves cross-window. Faltava este listener (achado na validação ao vivo
+  // do ARF-165/166/167): sem ele, a UI não se re-renderizava sozinha após um
+  // reorder dentro da mesma janela, exigindo reload manual.
+  chrome.tabs.onMoved.addListener(() => void broadcast());
   chrome.windows.onCreated.addListener(() => void broadcast());
   chrome.windows.onRemoved.addListener(() => void broadcast());
 }

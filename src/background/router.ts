@@ -26,7 +26,7 @@ import {
   setGroupCollapsed,
   updateGroupAppearance,
 } from "@/shared/storage";
-import { buildPong, isArfyinMessage, type ArfyinMessage, type ArfyinResponse } from "@/shared/messaging";
+import { buildPong, isArfyinMessage, type ArfyinResponse, type RoutableMessage } from "@/shared/messaging";
 import { getCurrentUserId, getRemoteDb } from "@/shared/supabaseClient";
 import {
   drainQueue,
@@ -84,7 +84,7 @@ export async function bootstrapSync(db: ArfyinDb): Promise<void> {
  * tests/background/router.test.ts). `src/background/index.ts` é a única
  * casca que liga isto ao `chrome.runtime.onMessage` real.
  */
-export async function routeMessage(db: ArfyinDb, message: ArfyinMessage): Promise<ArfyinResponse> {
+export async function routeMessage(db: ArfyinDb, message: RoutableMessage): Promise<ArfyinResponse> {
   switch (message.type) {
     case "PING":
       return buildPong();

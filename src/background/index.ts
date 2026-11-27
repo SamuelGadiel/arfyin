@@ -28,6 +28,22 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!isArfyinMessage(message)) return false;
 
+  // Caso especial: so toca chrome.tabs, nenhuma leitura/escrita em `db` — nao
+  // entra no switch de routeMessage, que e documentado/testado como puro,
+  // sem chrome.* (ver ADR-015 em docs/architecture/decisions.md).
+  if (message.type === "MOVE_LIVE_TAB") {
+    chrome.tabs
+      .move(message.tabIds, { windowId: message.windowId, index: message.index })
+      .then(() => sendResponse({ type: "LIVE_TAB_MOVED" }))
+      .catch((err) =>
+        sendResponse({
+          type: "LIVE_TAB_MOVE_FAILED",
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    return true;
+  }
+
   dbPromise
     .then((db) => routeMessage(db, message))
     .then(sendResponse);
