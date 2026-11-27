@@ -1,20 +1,31 @@
 <script lang="ts">
   import type { LiveTab } from "@/shared/types";
   import { store } from "../lib/store.svelte";
-  import { setDragPayload } from "../lib/dragdrop";
+  import { setDragPayload, readDragPayload } from "../lib/dragdrop";
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
   import { liveTabDragState } from "../lib/liveTabDragState.svelte";
+  import { computeLiveDropIndex } from "../lib/liveTabDrop";
   import Icon from "./Icon.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
   import QuickAccessDialog from "./QuickAccessDialog.svelte";
 
   interface Props {
     tab: LiveTab;
+    /** Janela a que esta aba pertence (destino do drop, quando este item recebe um drag). */
+    windowId: number;
+    /** `window.tabs` completa desta janela — necessaria pro calculo de indice de destino. */
+    tabs: LiveTab[];
+    /** Posicao deste item dentro de `tabs`. */
+    index: number;
   }
 
-  let { tab }: Props = $props();
+  let { tab, windowId, tabs, index }: Props = $props();
   let selected = $derived(liveSelectionState.isSelected(tab.chromeTabId));
   let showCloseConfirm = $state(false);
+  // Em qual metade do item o cursor esta durante um drag de OUTRA aba viva
+  // por cima deste — decide se o drop insere antes ou depois. `null` quando
+  // nao ha drag de live-tab em andamento sobre este item.
+  let dropPosition: "before" | "after" | null = $state(null);
 
   function toOmitKind(t: LiveTab) {
     return { chromeTabId: t.chromeTabId, windowId: t.windowId, url: t.url, title: t.title, faviconUrl: t.faviconUrl };
@@ -129,6 +140,63 @@
     liveTabDragState.draggingTabIds = null;
   }
 
+  // Alvo de drop: a altura INTEIRA do item (nao uma faixa fina dedicada —
+  // essa foi a 1a tentativa, e falhou na pratica: um gap de 12-24px entre
+  // abas de ~32-40px de altura e um alvo pequeno demais pra um drag real de
+  // mouse acertar, alem de inflar visivelmente o espacamento entre abas.
+  // Relatado ao vivo pelo usuario: "entrelinhas aumentou" + "arrasto e nada
+  // acontece" — o drop quase sempre caia no CORPO do item vizinho, que so
+  // tinha dragstart/dragend, bolhando pro fallback da secao que sempre
+  // inseria no FIM da lista, nunca na posicao onde o usuario soltou de fato).
+  // Decide antes/depois pela metade (cima/baixo) onde o cursor esta.
+  function resolveDropPosition(event: DragEvent, el: HTMLElement): "before" | "after" {
+    const rect = el.getBoundingClientRect();
+    return event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+  }
+
+  function handleItemDragEnter(event: DragEvent) {
+    if (!liveTabDragState.draggingTabIds) return;
+    event.preventDefault();
+    dropPosition = resolveDropPosition(event, event.currentTarget as HTMLElement);
+  }
+
+  function handleItemDragOver(event: DragEvent) {
+    if (!liveTabDragState.draggingTabIds) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    dropPosition = resolveDropPosition(event, event.currentTarget as HTMLElement);
+  }
+
+  function handleItemDragLeave() {
+    dropPosition = null;
+  }
+
+  function handleItemDrop(event: DragEvent) {
+    if (!liveTabDragState.draggingTabIds) return;
+    event.preventDefault();
+    // Mesmo motivo do antigo LiveTabDropGap: impede o fallback de "drop sem
+    // alvo especifico insere no fim" (na <section> de LiveWindowSection) de
+    // tambem disparar pro MESMO drop via bubbling.
+    event.stopPropagation();
+    const pos = dropPosition ?? resolveDropPosition(event, event.currentTarget as HTMLElement);
+    dropPosition = null;
+    const payload = readDragPayload(event);
+    if (!payload) return;
+    if (payload.kind !== "live-tab" && payload.kind !== "live-tabs-batch") return;
+
+    const tabIds =
+      payload.kind === "live-tab" ? [payload.chromeTabId] : payload.tabs.map((t) => t.chromeTabId);
+    const gapIndex = pos === "before" ? index : index + 1;
+    const targetIndex = computeLiveDropIndex(tabs, gapIndex, tabIds);
+    // sendResponse sempre RESOLVE (nunca rejeita) — sem este .then uma falha
+    // real (ex. aba fechada entre o dragstart e o drop) nunca apareceria no
+    // console (criterio de aceite explicito do SDD).
+    chrome.runtime.sendMessage({ type: "MOVE_LIVE_TAB", tabIds, windowId, index: targetIndex }).then((res) => {
+      if (res?.type === "LIVE_TAB_MOVE_FAILED") console.error("[arfyin] MOVE_LIVE_TAB falhou:", res.error);
+    });
+    if (payload.kind === "live-tabs-batch") liveSelectionState.disable();
+  }
+
   function handleClick() {
     if (liveSelectionState.active) {
       liveSelectionState.toggle(tab);
@@ -171,9 +239,15 @@
 <div
   class="live-tab"
   class:selected
+  class:drop-before={dropPosition === "before"}
+  class:drop-after={dropPosition === "after"}
   draggable="true"
   ondragstart={handleDragStart}
   ondragend={handleDragEnd}
+  ondragenter={handleItemDragEnter}
+  ondragover={handleItemDragOver}
+  ondragleave={handleItemDragLeave}
+  ondrop={handleItemDrop}
   role="listitem"
 >
   <button class="tab-link" onclick={handleClick} title={tab.url}>
@@ -233,6 +307,15 @@
   .live-tab:hover,
   .live-tab.selected {
     background: rgba(255, 255, 255, 0.08);
+  }
+  /* Linha de insercao via box-shadow inset — nao desloca layout (sem
+     margin/altura extra), ao contrario da 1a tentativa (LiveTabDropGap),
+     que inflava o espacamento entre abas mesmo em repouso. */
+  .live-tab.drop-before {
+    box-shadow: inset 0 2px 0 rgba(234, 234, 234, 0.9);
+  }
+  .live-tab.drop-after {
+    box-shadow: inset 0 -2px 0 rgba(234, 234, 234, 0.9);
   }
   .tab-link {
     display: flex;

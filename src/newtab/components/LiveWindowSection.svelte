@@ -8,7 +8,6 @@
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
   import { computeLiveDropIndex } from "../lib/liveTabDrop";
   import LiveTabItem from "./LiveTabItem.svelte";
-  import LiveTabDropGap from "./LiveTabDropGap.svelte";
   import Icon from "./Icon.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
@@ -88,10 +87,11 @@
     chrome.windows.remove(window.windowId);
   }
 
-  // Fallback de robustez (mesmo espirito do fix do ARF-154 "drop sem item
-  // especifico sob o cursor insere no fim"): se o drop nao foi capturado por
-  // nenhum LiveTabDropGap (bubbling chegou ate a section — ex. solto sobre o
-  // corpo de um LiveTabItem, que nao tem drop handler proprio), insere no fim.
+  // Fallback de robustez: cobre o drop numa area SEM nenhum LiveTabItem (ex.
+  // janela vazia, ou o padding abaixo do ultimo item) — cada LiveTabItem ja
+  // e seu proprio alvo de drop (altura inteira, decide antes/depois pela
+  // metade onde o cursor esta), entao este fallback so insere no fim quando
+  // realmente nao ha item nenhum sob o cursor.
   function handleSectionDragOver(event: DragEvent) {
     if (!liveTabDragState.draggingTabIds) return;
     event.preventDefault();
@@ -168,10 +168,8 @@
 
   {#if !collapsed}
     <div class="group-body" role="list">
-      <LiveTabDropGap windowId={window.windowId} index={0} tabs={window.tabs} />
       {#each window.tabs as tab, i (tab.chromeTabId)}
-        <LiveTabItem {tab} />
-        <LiveTabDropGap windowId={window.windowId} index={i + 1} tabs={window.tabs} />
+        <LiveTabItem {tab} windowId={window.windowId} tabs={window.tabs} index={i} />
       {/each}
     </div>
   {/if}
