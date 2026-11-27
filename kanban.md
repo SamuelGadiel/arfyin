@@ -11,6 +11,7 @@
 | ARF-018 | SYNC | Keep-alive externo (cron na Oracle Cloud do usuário contra pausa do Supabase) — **adiado, ver ADR-011**: só implementar se a pausa virar problema recorrente na prática | A4, ADR-011 |
 | ARF-040 | PERSIST (v2) | Toggle: extensão assume persistência de sessão (desliga restore nativo do Chrome) | D1, D2 |
 | ARF-041 | PERSIST (v2) | Monitoramento em background funcionando sem nenhuma new-tab aberta | D3 |
+| ARF-165/166/167 | LIVE | Mover aba(s) viva(s) entre janelas via drag-and-drop preservando estado (`chrome.tabs.move`, sem close/reopen) + reorder de abas vivas dentro da mesma janela; posição exata no drop, aba sai do tab group nativo do Chrome ao mudar de janela, última aba fecha a janela de origem (comportamento nativo aceito) | [docs/research/live-tab-move-cross-window.md](docs/research/live-tab-move-cross-window.md) |
 
 ## Ready
 
