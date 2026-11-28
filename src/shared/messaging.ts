@@ -7,7 +7,6 @@ import type {
   SavedTab,
 } from "./types";
 import type { BackgroundCacheEntry, SyncStatus } from "./storage";
-import type { BackgroundAttribution } from "./backgroundSource";
 
 export interface PingMessage {
   type: "PING";
@@ -178,18 +177,6 @@ export interface MoveLiveTabMessage {
   index: number;
 }
 
-// Mesmo motivo do MOVE_LIVE_TAB (ADR-015): nao e puro (faz fetch de rede real
-// pra baixar/redimensionar a proxima imagem, alem de tocar `db`) — tratada
-// fora de routeMessage, direto em src/background/index.ts.
-export interface PopBackgroundPrefetchMessage {
-  type: "POP_BACKGROUND_PREFETCH";
-  source: "reddit" | "unsplash";
-  subreddits: string[];
-  unsplashTopics: string[];
-  targetWidth: number;
-  targetHeight: number;
-}
-
 export type ArfyinMessage =
   | PingMessage
   | ListGroupsMessage
@@ -219,16 +206,14 @@ export type ArfyinMessage =
   | GetBackgroundCacheMessage
   | SetBackgroundCacheMessage
   | BootstrapSyncMessage
-  | MoveLiveTabMessage
-  | PopBackgroundPrefetchMessage;
+  | MoveLiveTabMessage;
 
-// `MOVE_LIVE_TAB`/`POP_BACKGROUND_PREFETCH` nunca chegam em `routeMessage`
-// (ver ADR-015) — interceptadas antes, direto em `src/background/index.ts`.
-// Este tipo exclui esses membros da uniao para que o `switch` exaustivo de
-// `routeMessage` continue garantindo, em tempo de compilacao, que toda
-// mensagem roteavel tem um `case` com return — sem precisar de um `default`
-// que mascararia um tipo novo esquecido.
-export type RoutableMessage = Exclude<ArfyinMessage, MoveLiveTabMessage | PopBackgroundPrefetchMessage>;
+// `MOVE_LIVE_TAB` nunca chega em `routeMessage` (ver ADR-015) — interceptado
+// antes, direto em `src/background/index.ts`. Este tipo exclui esse membro da
+// uniao para que o `switch` exaustivo de `routeMessage` continue garantindo,
+// em tempo de compilacao, que toda mensagem roteavel tem um `case` com return
+// — sem precisar de um `default` que mascararia um tipo novo esquecido.
+export type RoutableMessage = Exclude<ArfyinMessage, MoveLiveTabMessage>;
 
 export type ArfyinResponse =
   | PongMessage
@@ -265,17 +250,7 @@ export type ArfyinResponse =
   | { type: "BACKGROUND_CACHE_SET" }
   | { type: "BOOTSTRAP_SYNC_DONE" }
   | { type: "LIVE_TAB_MOVED" }
-  | { type: "LIVE_TAB_MOVE_FAILED"; error: string }
-  | {
-      type: "BACKGROUND_PREFETCH";
-      // Base64, nao Blob: `chrome.runtime.sendMessage` serializa via JSON
-      // puro — Blob (e ArrayBuffer) chegam como objeto vazio do outro lado,
-      // sem erro. Ver `blobToBase64`/`base64ToBlob` em backgroundFetch.ts.
-      imageBase64: string | null;
-      mimeType?: string;
-      sourceUrl?: string;
-      attribution?: BackgroundAttribution;
-    };
+  | { type: "LIVE_TAB_MOVE_FAILED"; error: string };
 
 function hasType(message: unknown): message is { type: string } {
   return typeof message === "object" && message !== null && "type" in message;
@@ -315,7 +290,6 @@ const MESSAGE_TYPES = {
   SET_BACKGROUND_CACHE: true,
   BOOTSTRAP_SYNC: true,
   MOVE_LIVE_TAB: true,
-  POP_BACKGROUND_PREFETCH: true,
 } satisfies Record<ArfyinMessage["type"], true>;
 
 export function isArfyinMessage(message: unknown): message is ArfyinMessage {

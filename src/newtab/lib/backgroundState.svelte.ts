@@ -1,13 +1,120 @@
 import { store } from "./store.svelte";
 import { send } from "./client";
-import type { BackgroundCandidate, BackgroundAttribution } from "@/shared/backgroundSource";
-import { type BgSpec, parseBgSpec, fetchFreshCandidates } from "@/shared/backgroundFetch";
+import {
+  extractImageUrls,
+  extractUnsplashCandidates,
+  type BackgroundCandidate,
+  type MinimalRedditPost,
+  type MinimalUnsplashPhoto,
+} from "@/shared/backgroundSource";
+import type { BackgroundRotationMode, BackgroundSourceKind } from "@/shared/types";
 
 // Cache de candidatos (reddit/unsplash) persistido no background — evita bater
 // na rede (e no rate limit do Unsplash) a cada new-tab aberta. Fresco por ate
 // 1h; depois disso, mostra o cache (instantaneo) e atualiza em paralelo para a
 // PROXIMA aba, sem trocar a imagem desta aba no meio da sessao.
 const CACHE_TTL_MS = 60 * 60_000;
+
+async function fetchUnsplashRandom(topic: string, accessKey: string, landscapeOnly: boolean) {
+  const orientationParam = landscapeOnly ? "&orientation=landscape" : "";
+  const res = await fetch(
+    `https://api.unsplash.com/photos/random?query=${encodeURIComponent(topic)}&count=10${orientationParam}`,
+    { headers: { Authorization: `Client-ID ${accessKey}` } },
+  );
+  const photos = (await res.json()) as MinimalUnsplashPhoto[];
+  return extractUnsplashCandidates(Array.isArray(photos) ? photos : []);
+}
+
+interface BgSpec {
+  source: BackgroundSourceKind;
+  subreddits: string[];
+  unsplashTopics: string[];
+  localAssetIds: string[];
+  pausedKey: string | null;
+  rotationMode: BackgroundRotationMode;
+  frequencyMinutes: number;
+  timedStartedAt: number;
+}
+
+function parseBgSpec(key: string): BgSpec {
+  const [
+    source,
+    subreddits,
+    unsplashTopics,
+    localAssetIds,
+    pausedKey,
+    rotationMode,
+    frequencyMinutes,
+    timedStartedAt,
+  ] = JSON.parse(key) as [
+    BackgroundSourceKind,
+    string[],
+    string[],
+    string[],
+    string | null,
+    BackgroundRotationMode,
+    number,
+    number,
+  ];
+  return {
+    source,
+    subreddits,
+    unsplashTopics,
+    localAssetIds,
+    pausedKey,
+    rotationMode,
+    frequencyMinutes,
+    timedStartedAt,
+  };
+}
+
+/**
+ * Busca candidatos de TODAS as fontes configuradas (todos os subreddits ou
+ * topicos, nao so um sorteado) e combina — e isso que faz "ciclar entre
+ * varios ao mesmo tempo" funcionar de verdade: o pool de candidatos passa a
+ * conter imagens de cada um deles, em vez de travar numa fonte escolhida ao
+ * acaso a cada atualizacao de cache.
+ */
+async function fetchFreshCandidates(spec: BgSpec): Promise<BackgroundCandidate[]> {
+  if (spec.source === "reddit" && spec.subreddits.length > 0) {
+    const perSubreddit = await Promise.all(
+      spec.subreddits.map(async (subreddit) => {
+        try {
+          const res = await fetch(`https://www.reddit.com/r/${subreddit}/top.json?limit=25&t=week`);
+          const json = await res.json();
+          const posts = (json?.data?.children ?? []) as MinimalRedditPost[];
+          return extractImageUrls(posts);
+        } catch {
+          return [];
+        }
+      }),
+    );
+    return perSubreddit.flat();
+  }
+  if (spec.source === "unsplash" && spec.unsplashTopics.length > 0) {
+    const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
+    if (!accessKey) return [];
+    const perTopic = await Promise.all(
+      spec.unsplashTopics.map(async (topic) => {
+        try {
+          // `orientation=landscape` e parametro oficial da API (evita papel de
+          // parede em retrato cortando muito ao esticar pra tela cheia — mesmo
+          // ajuste feito no lado do reddit em backgroundSource.ts). Mesma
+          // rede de seguranca do lado do reddit: se o topico nao tiver NENHUM
+          // resultado em paisagem (raro, mas possivel pra topicos bem
+          // especificos), refaz sem o parametro em vez de deixar o pool vazio.
+          const landscapeOnly = await fetchUnsplashRandom(topic, accessKey, true);
+          if (landscapeOnly.length > 0) return landscapeOnly;
+          return await fetchUnsplashRandom(topic, accessKey, false);
+        } catch {
+          return [];
+        }
+      }),
+    );
+    return perTopic.flat();
+  }
+  return [];
+}
 
 /**
  * Estado do papel de parede (candidatos, imagem atual, pause) extraido de
@@ -30,35 +137,6 @@ class BackgroundState {
 
   current = $derived(this.candidates[this.currentIndex] ?? null);
   currentUrl = $derived(this.current?.url ?? null);
-
-  /**
-   * Imagem consumida da fila de pre-fetch (ver src/background/backgroundPrefetch.ts)
-   * — tem PRIORIDADE sobre `currentUrl` ate o usuario chamar next()/prev()
-   * (que a descartam, passando a usar o pool normal) ou a aba fechar.
-   * Existe pra garantir abertura de aba instantanea e sem repetir a imagem
-   * da aba anterior (modo "per-tab") — ver BackgroundLayer.svelte.
-   */
-  prefetchedUrl: string | null = $state(null);
-  prefetchedAttribution: BackgroundAttribution | undefined = $state(undefined);
-  private prefetchedSourceUrl: string | null = null;
-  private prefetchedObjectUrl: string | null = null;
-
-  setPrefetched(blob: Blob, sourceUrl: string, attribution?: BackgroundAttribution): void {
-    this.clearPrefetched();
-    const url = URL.createObjectURL(blob);
-    this.prefetchedObjectUrl = url;
-    this.prefetchedUrl = url;
-    this.prefetchedSourceUrl = sourceUrl;
-    this.prefetchedAttribution = attribution;
-  }
-
-  clearPrefetched(): void {
-    if (this.prefetchedObjectUrl) URL.revokeObjectURL(this.prefetchedObjectUrl);
-    this.prefetchedObjectUrl = null;
-    this.prefetchedUrl = null;
-    this.prefetchedSourceUrl = null;
-    this.prefetchedAttribution = undefined;
-  }
 
   // Token de sequencia: descarta o resultado de uma chamada de loadCandidates
   // que termina DEPOIS de uma mais recente ja ter aplicado seu proprio
@@ -204,14 +282,12 @@ class BackgroundState {
   }
 
   next(): void {
-    this.clearPrefetched();
     if (this.candidates.length === 0) return;
     this.currentIndex = (this.currentIndex + 1) % this.candidates.length;
     this.preloadNeighbors();
   }
 
   prev(): void {
-    this.clearPrefetched();
     if (this.candidates.length === 0) return;
     this.currentIndex = (this.currentIndex - 1 + this.candidates.length) % this.candidates.length;
     this.preloadNeighbors();
@@ -220,22 +296,7 @@ class BackgroundState {
   /** Trava o candidato atualmente exibido: toda nova aba passa a mostrar so ele. */
   pause(): void {
     const bg = store.config.background;
-    let key: string | null | undefined;
-    if (bg.source === "local") {
-      key = bg.localAssetIds[this.currentIndex];
-    } else if (this.prefetchedUrl && this.prefetchedSourceUrl) {
-      // Garante que o candidato prefetched exista no pool normal — assim que
-      // pausedKey!==null, o fluxo volta a ser o normal (sem prefetch, ver
-      // BackgroundLayer.svelte), e `applyPausedKey` precisa achar esta
-      // entrada em `candidates` pra travar na imagem certa (a que ja estava
-      // na tela), nao sortear outra.
-      if (!this.candidates.some((c) => c.url === this.prefetchedSourceUrl)) {
-        this.candidates = [{ url: this.prefetchedSourceUrl, attribution: this.prefetchedAttribution }, ...this.candidates];
-      }
-      key = this.prefetchedSourceUrl;
-    } else {
-      key = this.current?.url;
-    }
+    const key = bg.source === "local" ? bg.localAssetIds[this.currentIndex] : this.current?.url;
     if (!key) return;
     store.updateConfig({ background: { ...bg, pausedKey: key } });
   }

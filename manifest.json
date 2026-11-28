@@ -4,13 +4,7 @@
   "version": "0.1.0",
   "description": "Gerenciador de abas e new-tab pessoal do Samuel.",
   "permissions": ["storage", "tabs", "alarms", "identity"],
-  "host_permissions": [
-    "https://www.reddit.com/*",
-    "https://api.unsplash.com/*",
-    "https://*.redd.it/*",
-    "https://*.redditmedia.com/*",
-    "https://images.unsplash.com/*"
-  ],
+  "host_permissions": ["https://www.reddit.com/*", "https://api.unsplash.com/*"],
   "background": {
     "service_worker": "src/background/index.ts",
     "type": "module"
