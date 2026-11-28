@@ -2,11 +2,18 @@
   import { onDestroy } from "svelte";
   import { store } from "../lib/store.svelte";
   import { backgroundState } from "../lib/backgroundState.svelte";
+  import { readQuickBackground, writeQuickBackground } from "../lib/backgroundQuickCache";
 
   interface Props {
     zen?: boolean;
   }
   let { zen = false }: Props = $props();
+
+  // Lido SINCRONAMENTE aqui (nao dentro de nenhum $effect), antes de
+  // store.configLoaded resolver — ver backgroundQuickCache.ts. So serve de
+  // palpite ate o valor REAL chegar; nunca e usado quando ja sabemos que a
+  // fonte real e "solid"/"local" (ver effectiveImageUrl abaixo).
+  const quickBg = readQuickBackground();
 
   let bg = $derived(store.config.background);
   // Chave primitiva estavel (string): usada como UNICA leitura reativa dos
@@ -33,10 +40,38 @@
 
   let intervalId: ReturnType<typeof setInterval> | undefined;
 
+  // Enquanto o config real ainda nao chegou, ou chegou mas os candidatos de
+  // reddit/unsplash ainda nao resolveram, usa o palpite do cache rapido —
+  // nunca quando ja sabemos que a fonte real e "solid"/"local" (senao uma
+  // imagem antiga de uma fonte anterior piscaria indevidamente).
+  let waitingForReal = $derived(
+    !store.configLoaded ||
+      ((bg.source === "reddit" || bg.source === "unsplash") && backgroundState.currentUrl === null),
+  );
+  let effectiveColor = $derived(
+    store.configLoaded ? (bg.source === "solid" ? bg.solidColor : "#121212") : (quickBg?.solidColor ?? "#121212"),
+  );
+  let effectiveImageUrl = $derived(
+    backgroundState.currentUrl ?? (waitingForReal ? (quickBg?.imageUrl ?? null) : null),
+  );
+
   $effect(() => {
     // re-carrega candidatos quando a fonte/parametros relevantes (pause, modo
     // de rotacao, frequencia) mudam
     backgroundState.loadCandidates(bgKey);
+  });
+
+  $effect(() => {
+    // Grava o palpite para a PROXIMA aba so quando o estado atual e
+    // "estavel" (fonte solid, sempre estavel; ou reddit/unsplash/local com
+    // candidatos ja resolvidos) — evita sobrescrever um cache valido com um
+    // estado intermediario (configLoaded=true mas currentUrl ainda null).
+    if (!store.configLoaded) return;
+    if (bg.source === "solid") {
+      writeQuickBackground({ solidColor: bg.solidColor, imageUrl: null });
+    } else if (backgroundState.currentUrl) {
+      writeQuickBackground({ solidColor: "#121212", imageUrl: backgroundState.currentUrl });
+    }
   });
 
   $effect(() => {
@@ -77,8 +112,8 @@
 
 <div
   class="background-layer"
-  style:background-color={bg.source === "solid" ? bg.solidColor : "#121212"}
-  style:background-image={backgroundState.currentUrl ? `url(${backgroundState.currentUrl})` : "none"}
+  style:background-color={effectiveColor}
+  style:background-image={effectiveImageUrl ? `url(${effectiveImageUrl})` : "none"}
   style:filter={zen ? "none" : `blur(${bg.blur}px)`}
 >
 </div>
