@@ -110,17 +110,26 @@
     }
   });
 
+  // Enquanto o config real ainda nao chegou, ou chegou mas os candidatos de
+  // reddit/unsplash ainda nao resolveram, usa o palpite do cache rapido —
+  // nunca quando o modo dinamico "per-tab" ja esta identificado. Usuario
+  // testou a alternativa (cache como ultimo recurso tambem no modo dinamico,
+  // ver REGISTRO.md v3) e rejeitou: aparecia uma imagem (a antiga) que
+  // trocava pouco depois pela nova — pior do que aceitar um instante de tela
+  // solida ("como era antes") ate a imagem definitiva (fila ou fallback)
+  // resolver, sem nenhuma troca no meio.
+  let waitingForReal = $derived(
+    !usesPrefetchQueue &&
+      (!store.configLoaded ||
+        ((bg.source === "reddit" || bg.source === "unsplash") && backgroundState.currentUrl === null)),
+  );
   let effectiveColor = $derived(
     store.configLoaded ? (bg.source === "solid" ? bg.solidColor : "#121212") : (quickBg?.solidColor ?? "#121212"),
   );
-  // Prioridade: prefetch (imagem pronta da fila) > pool normal (fallback ou
-  // modo nao-dinamico) > cache rapido como ULTIMO RECURSO. Esse ultimo nivel
-  // existe pra nunca deixar a tela preta (bug real relatado ao vivo) se
-  // tanto o prefetch quanto o pool normal falharem/demorarem (rede, SW
-  // reiniciando, etc.) — melhor mostrar uma imagem antiga por um instante do
-  // que nada, e assim que um dos dois resolver ele substitui normalmente.
   let effectiveImageUrl = $derived(
-    backgroundState.prefetchedUrl ?? backgroundState.currentUrl ?? (quickBg?.imageUrl ?? null),
+    backgroundState.prefetchedUrl ??
+      backgroundState.currentUrl ??
+      (waitingForReal ? (quickBg?.imageUrl ?? null) : null),
   );
   let effectiveAttribution = $derived(backgroundState.prefetchedUrl ? backgroundState.prefetchedAttribution : backgroundState.current?.attribution);
 

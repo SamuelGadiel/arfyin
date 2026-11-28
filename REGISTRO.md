@@ -578,3 +578,15 @@ Cobertura e2e permanente: novo teste em `tests/e2e/background-prefetch.spec.ts` 
 Nota: a flakiness ambiental da suíte e2e completa (já documentada antes) se mostrou um pouco mais frequente nesta rodada — em 3 execuções seguidas da suíte inteira, cada uma teve exatamente 1 falha, mas em specs **diferentes** a cada vez (nunca no spec novo deste fix, que foi 4/4 estável isolado). Consistente com infraestrutura (contenção de foco/CPU entre múltiplos processos Chrome `headless:false` nesta máquina), não com regressão de código — mas a frequência maior merece atenção se continuar piorando.
 
 `npm run test` (106/106), `npm run typecheck`, `svelte-check` (0 erros, 8 warnings baseline), `npm run build` limpos. `npx playwright test` do novo spec: 4/4 execuções estáveis.
+
+## 2026-11-28 (5ª rodada) — ARF-168 v4: ajuste final, cache como "último recurso" também causava troca dupla de imagem
+
+Usuário testou a v3 e reportou: continua aparecendo uma imagem por uma fração de tempo, e depois mudando para outra — preferia como era antes, onde aparecia um instante de preto e depois direto a imagem correta. Perguntou explicitamente se eu queria continuar investigando ou reverter essa parte.
+
+**Causa**: o "cache simples como último recurso" (reativado na v3 para o modo dinâmico "per-tab") não distingue "vou falhar de verdade" de "ainda estou no meio do round-trip normal" — o operador `??` usa o cache sempre que `prefetchedUrl`/`currentUrl` ainda são `null`, mesmo que seja só por alguns ms enquanto a Promise do pop está em voo. Resultado: em **toda** abertura de aba (não só em falha), a imagem antiga (do cache) aparecia primeiro e trocava pela nova pouco depois — exatamente o sintoma reportado, e o mesmo tipo de bug da v1/v2 original (mostrar algo que não é a imagem definitiva).
+
+**Decisão**: não vale a pena continuar tentando mascarar a janela de espera com truques — cada tentativa introduziu um efeito colateral novo. Revertido para o comportamento mais simples e já aceito pelo usuário antes de qualquer uma dessas correções: no modo dinâmico, a tela fica em cor sólida (`effectiveColor`, sem imagem) até `prefetchedUrl` ou `backgroundState.currentUrl` resolverem — sem nenhuma imagem intermediária. O `try`/`catch` da v3 continua garantindo que o fallback sempre roda eventualmente (nunca mais fica preto *pra sempre*, só durante a espera real). O cache simples (`localStorage`) continua existindo e funcionando normalmente só para o modo estático/pausado, onde é seguro (a imagem nunca muda ali).
+
+Validado ao vivo: config real atrasada propositalmente em 2s, com uma imagem "antiga" fake pré-populada no `localStorage` — amostragem a cada 150ms confirma que a tela fica em `none` (cor sólida) durante toda a espera, e a imagem antiga **nunca** aparece em nenhum momento; assim que a resposta real chega, a imagem nova aparece direto, sem troca.
+
+`npm run test` (106/106), `npm run typecheck`, `svelte-check` (0 erros, 8 warnings), `npm run build` e `npx playwright test` (8/8) confirmados limpos.
