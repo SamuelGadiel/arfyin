@@ -9,7 +9,7 @@ import {
   type NewSavedTabInput,
   type SavedTab,
 } from "./types";
-import type { BackgroundCandidate } from "./backgroundSource";
+import type { BackgroundAttribution, BackgroundCandidate } from "./backgroundSource";
 
 /**
  * IndexedDB não aceita `null` como chave de índice válida. Internamente guardamos
@@ -77,11 +77,34 @@ interface ArfyinDbSchema extends DBSchema {
     key: string;
     value: BackgroundCacheEntry;
   };
+  background_prefetch: {
+    key: string;
+    value: BackgroundPrefetchItem;
+    indexes: { specKey: string };
+  };
 }
 
 export interface BackgroundCacheEntry {
   candidates: BackgroundCandidate[];
   fetchedAt: number;
+}
+
+/**
+ * Item da fila de imagens de fundo PRE-BAIXADAS (blob real, nao so URL) para
+ * reddit/unsplash no modo "per-tab" — pedido explicito do usuario apos o
+ * fluxo anterior (reaplicar a ultima imagem via localStorage) causar flashes
+ * de imagem errada: aqui cada aba consome um item ja pronto da fila (blob em
+ * `assets`, ver `addAsset`/`getAsset`), nunca reaplica o que outra aba ja
+ * usou. `specKey` = mesma assinatura de fonte/parametros usada em
+ * `background_cache`, para isolar filas de configuracoes diferentes.
+ */
+export interface BackgroundPrefetchItem {
+  id: string;
+  specKey: string;
+  order: number;
+  /** URL original (reddit/unsplash) de onde o blob veio — usada por `pause()` pra travar nessa imagem, igual ao fluxo sem prefetch. */
+  sourceUrl: string;
+  attribution?: BackgroundAttribution;
 }
 
 const APP_CONFIG_KEY = "appConfig";
@@ -94,7 +117,7 @@ export type ArfyinDb = IDBPDatabase<ArfyinDbSchema>;
  * rodarem (ver tests/setup.ts), então nenhum mock manual é necessário aqui.
  */
 export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
-  return openDB<ArfyinDbSchema>(name, 5, {
+  return openDB<ArfyinDbSchema>(name, 6, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         db.createObjectStore("groups", { keyPath: "id" });
@@ -113,6 +136,10 @@ export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
       }
       if (oldVersion < 5) {
         db.createObjectStore("background_cache", { keyPath: undefined });
+      }
+      if (oldVersion < 6) {
+        const prefetch = db.createObjectStore("background_prefetch", { keyPath: "id" });
+        prefetch.createIndex("specKey", "specKey");
       }
     },
   });
@@ -215,6 +242,67 @@ export async function setSyncStatus(db: ArfyinDb, status: SyncStatus): Promise<v
 export async function getBackgroundCache(db: ArfyinDb, key: string): Promise<BackgroundCacheEntry | null> {
   const entry = await db.get("background_cache", key);
   return entry ?? null;
+}
+
+/**
+ * Adiciona um item ao FIM da fila de pre-fetch daquele `specKey`. O blob vai
+ * na tabela `assets` ja existente (reaproveita addAsset/getAsset/deleteAsset
+ * — evita duplicar a infraestrutura de blob grande).
+ */
+export async function enqueueBackgroundPrefetch(
+  db: ArfyinDb,
+  specKey: string,
+  blob: Blob,
+  sourceUrl: string,
+  attribution?: BackgroundAttribution,
+): Promise<string> {
+  const id = await addAsset(db, blob);
+  const existing = await db.getAllFromIndex("background_prefetch", "specKey", specKey);
+  const maxOrder = existing.reduce((m, it) => Math.max(m, it.order), -1);
+  await db.put("background_prefetch", { id, specKey, order: maxOrder + 1, sourceUrl, attribution });
+  return id;
+}
+
+/**
+ * Remove e retorna o item MAIS ANTIGO (menor `order`) da fila daquele
+ * `specKey` — leitura+remocao numa UNICA transacao IndexedDB (readwrite),
+ * atomica em relacao a chamadas concorrentes (duas abas abrindo ao mesmo
+ * tempo nao podem consumir o mesmo item — IndexedDB serializa transacoes
+ * readwrite na mesma object store). NAO remove o blob associado em `assets`
+ * — quem chama decide (normalmente le o blob e so entao remove, ver
+ * `src/background/backgroundPrefetch.ts`).
+ */
+export async function popBackgroundPrefetch(db: ArfyinDb, specKey: string): Promise<BackgroundPrefetchItem | null> {
+  const tx = db.transaction("background_prefetch", "readwrite");
+  const index = tx.store.index("specKey");
+  let cursor = await index.openCursor(IDBKeyRange.only(specKey));
+  let best: BackgroundPrefetchItem | null = null;
+  while (cursor) {
+    if (!best || cursor.value.order < best.order) best = cursor.value;
+    cursor = await cursor.continue();
+  }
+  if (best) await tx.store.delete(best.id);
+  await tx.done;
+  return best;
+}
+
+export async function countBackgroundPrefetch(db: ArfyinDb, specKey: string): Promise<number> {
+  return (await db.getAllFromIndex("background_prefetch", "specKey", specKey)).length;
+}
+
+/**
+ * Limpa itens de filas de OUTRAS configuracoes (specKey diferente) — evita
+ * acumular lixo indefinidamente quando o usuario troca de fonte/subreddits;
+ * libera tambem o blob associado em `assets`.
+ */
+export async function clearBackgroundPrefetchExcept(db: ArfyinDb, keepSpecKey: string): Promise<void> {
+  const all = await db.getAll("background_prefetch");
+  for (const item of all) {
+    if (item.specKey !== keepSpecKey) {
+      await db.delete("background_prefetch", item.id);
+      await deleteAsset(db, item.id);
+    }
+  }
 }
 
 export async function setBackgroundCache(db: ArfyinDb, key: string, entry: BackgroundCacheEntry): Promise<void> {

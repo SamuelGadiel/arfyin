@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { store } from "../lib/store.svelte";
+  import { send } from "../lib/client";
   import { backgroundState } from "../lib/backgroundState.svelte";
   import { readQuickBackground, writeQuickBackground } from "../lib/backgroundQuickCache";
+  import { base64ToBlob } from "@/shared/backgroundFetch";
 
   interface Props {
     zen?: boolean;
@@ -11,8 +13,11 @@
 
   // Lido SINCRONAMENTE aqui (nao dentro de nenhum $effect), antes de
   // store.configLoaded resolver — ver backgroundQuickCache.ts. So serve de
-  // palpite ate o valor REAL chegar; nunca e usado quando ja sabemos que a
-  // fonte real e "solid"/"local" (ver effectiveImageUrl abaixo).
+  // palpite ate o valor REAL chegar, e SO quando a imagem e estavel (fonte
+  // "solid" ou pausada numa unica imagem) — nunca no modo "per-tab" dinamico,
+  // que usa a fila de pre-fetch abaixo (reaplicar a ultima imagem de outra
+  // aba no modo dinamico foi reportado ao vivo como um flash de imagem
+  // errada, exatamente o bug que a fila resolve).
   const quickBg = readQuickBackground();
 
   let bg = $derived(store.config.background);
@@ -40,33 +45,84 @@
 
   let intervalId: ReturnType<typeof setInterval> | undefined;
 
+  // Modo dinamico "per-tab" (cada aba mostra uma imagem diferente) com fonte
+  // remota e sem imagem travada: usa a fila de pre-fetch (blob ja baixado,
+  // sempre pronto) em vez do fluxo antigo. Nos demais casos (fonte sólida,
+  // asset local, imagem pausada/travada, modo "timed" sincronizado por
+  // tempo) a imagem e sempre a MESMA entre aberturas — o cache rapido de
+  // localStorage e seguro e suficiente ali, sem precisar de fila nenhuma.
+  let usesPrefetchQueue = $derived(
+    store.configLoaded &&
+      bg.pausedKey === null &&
+      bg.rotationMode === "per-tab" &&
+      (bg.source === "reddit" || bg.source === "unsplash"),
+  );
+  // Dependencia reduzida do effect de pre-fetch — so o que de fato muda QUAL
+  // fila consultar (fonte/parametros/pause/modo). Deliberadamente nao inclui
+  // darken/blur/frequencyMinutes/timedStartedAt, que mudam sem precisar de
+  // um novo pop da fila.
+  let prefetchKey = $derived(
+    JSON.stringify([bg.source, bg.subreddits, bg.unsplashTopics, bg.pausedKey, bg.rotationMode]),
+  );
+
+  async function loadViaPrefetchQueue() {
+    const dpr = window.devicePixelRatio || 1;
+    const targetWidth = Math.round(window.screen.width * dpr);
+    const targetHeight = Math.round(window.screen.height * dpr);
+    const res = await send<"BACKGROUND_PREFETCH">({
+      type: "POP_BACKGROUND_PREFETCH",
+      source: bg.source as "reddit" | "unsplash",
+      subreddits: bg.subreddits,
+      unsplashTopics: bg.unsplashTopics,
+      targetWidth,
+      targetHeight,
+    });
+    if (res.type === "BACKGROUND_PREFETCH" && res.imageBase64 && res.sourceUrl) {
+      const blob = base64ToBlob(res.imageBase64, res.mimeType ?? "image/jpeg");
+      backgroundState.setPrefetched(blob, res.sourceUrl, res.attribution);
+    }
+    // Sempre popula o pool normal tambem (usado por next()/prev() e como
+    // fallback se a fila estava vazia) — nao bloqueia a exibicao acima.
+    backgroundState.loadCandidates(bgKey);
+  }
+
+  $effect(() => {
+    if (usesPrefetchQueue) {
+      // Leitura sincrona de `prefetchKey` estabelece a dependencia reativa.
+      void prefetchKey;
+      loadViaPrefetchQueue();
+    } else {
+      backgroundState.clearPrefetched();
+      backgroundState.loadCandidates(bgKey);
+    }
+  });
+
   // Enquanto o config real ainda nao chegou, ou chegou mas os candidatos de
   // reddit/unsplash ainda nao resolveram, usa o palpite do cache rapido —
-  // nunca quando ja sabemos que a fonte real e "solid"/"local" (senao uma
-  // imagem antiga de uma fonte anterior piscaria indevidamente).
+  // nunca quando ja sabemos que a fonte real e "solid"/"local", nem quando
+  // o modo dinamico esta ativo (ali quem resolve e a fila de pre-fetch).
   let waitingForReal = $derived(
-    !store.configLoaded ||
-      ((bg.source === "reddit" || bg.source === "unsplash") && backgroundState.currentUrl === null),
+    !usesPrefetchQueue &&
+      (!store.configLoaded ||
+        ((bg.source === "reddit" || bg.source === "unsplash") && backgroundState.currentUrl === null)),
   );
   let effectiveColor = $derived(
     store.configLoaded ? (bg.source === "solid" ? bg.solidColor : "#121212") : (quickBg?.solidColor ?? "#121212"),
   );
   let effectiveImageUrl = $derived(
-    backgroundState.currentUrl ?? (waitingForReal ? (quickBg?.imageUrl ?? null) : null),
+    backgroundState.prefetchedUrl ??
+      backgroundState.currentUrl ??
+      (waitingForReal ? (quickBg?.imageUrl ?? null) : null),
   );
+  let effectiveAttribution = $derived(backgroundState.prefetchedUrl ? backgroundState.prefetchedAttribution : backgroundState.current?.attribution);
 
   $effect(() => {
-    // re-carrega candidatos quando a fonte/parametros relevantes (pause, modo
-    // de rotacao, frequencia) mudam
-    backgroundState.loadCandidates(bgKey);
-  });
-
-  $effect(() => {
-    // Grava o palpite para a PROXIMA aba so quando o estado atual e
-    // "estavel" (fonte solid, sempre estavel; ou reddit/unsplash/local com
-    // candidatos ja resolvidos) — evita sobrescrever um cache valido com um
-    // estado intermediario (configLoaded=true mas currentUrl ainda null).
-    if (!store.configLoaded) return;
+    // Grava o palpite para a PROXIMA aba so quando o estado e "estavel" E
+    // nao-dinamico (fonte solid, sempre estavel; ou reddit/unsplash/local
+    // pausado/travado numa unica imagem) — nunca no modo "per-tab" (ali cada
+    // aba deve ver uma imagem DIFERENTE da anterior, entao reaplicar a
+    // ultima seria o bug ja relatado, nao uma otimizacao).
+    if (!store.configLoaded || usesPrefetchQueue) return;
     if (bg.source === "solid") {
       writeQuickBackground({ solidColor: bg.solidColor, imageUrl: null });
     } else if (backgroundState.currentUrl) {
@@ -77,7 +133,7 @@
   $effect(() => {
     // Guideline da Unsplash API: disparar o "trigger download" quando a foto
     // e efetivamente usada (exibida como background), uma vez por foto.
-    const downloadLocation = backgroundState.current?.attribution?.downloadLocation;
+    const downloadLocation = effectiveAttribution?.downloadLocation;
     if (downloadLocation && backgroundState.downloadTriggeredFor !== downloadLocation) {
       backgroundState.downloadTriggeredFor = downloadLocation;
       const accessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
@@ -107,6 +163,7 @@
   onDestroy(() => {
     if (intervalId) clearInterval(intervalId);
     backgroundState.objectUrlsToRevoke.forEach((url) => URL.revokeObjectURL(url));
+    backgroundState.clearPrefetched();
   });
 </script>
 
@@ -119,8 +176,8 @@
 </div>
 <div class="darken-overlay" style:background-color={zen ? "transparent" : `rgba(0,0,0,${bg.darken})`}></div>
 
-{#if !zen && backgroundState.current?.attribution}
-  {@const attribution = backgroundState.current.attribution}
+{#if !zen && effectiveAttribution}
+  {@const attribution = effectiveAttribution}
   <div class="attribution">
     {#if attribution.kind === "unsplash"}
       Photo by <a href={attribution.authorUrl} target="_blank" rel="noopener noreferrer">{attribution.authorName}</a>

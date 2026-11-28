@@ -1,7 +1,9 @@
 import { openArfyinDb } from "@/shared/storage";
 import { isArfyinMessage } from "@/shared/messaging";
+import { computeSpecKey, blobToBase64, type BgSpec } from "@/shared/backgroundFetch";
 import { routeMessage, bootstrapSync } from "./router";
 import { registerLiveTabsBroadcast } from "./liveTabsBroadcast";
+import { popAndRefill } from "./backgroundPrefetch";
 
 registerLiveTabsBroadcast();
 
@@ -41,6 +43,40 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           error: err instanceof Error ? err.message : String(err),
         }),
       );
+    return true;
+  }
+
+  // Mesmo motivo do MOVE_LIVE_TAB acima: faz fetch de rede real (baixa e
+  // redimensiona a proxima imagem), nao e puro/testavel com fake-indexeddb
+  // sozinho — ver ADR-015.
+  if (message.type === "POP_BACKGROUND_PREFETCH") {
+    const spec: BgSpec = {
+      source: message.source,
+      subreddits: message.subreddits,
+      unsplashTopics: message.unsplashTopics,
+      localAssetIds: [],
+      pausedKey: null,
+      rotationMode: "per-tab",
+      frequencyMinutes: 0,
+      timedStartedAt: 0,
+    };
+    const specKey = computeSpecKey(spec);
+    dbPromise
+      .then((db) => popAndRefill(db, specKey, spec, message.targetWidth, message.targetHeight))
+      .then(async (res) => {
+        const imageBase64 = res.blob ? await blobToBase64(res.blob) : null;
+        sendResponse({
+          type: "BACKGROUND_PREFETCH",
+          imageBase64,
+          mimeType: res.blob?.type,
+          sourceUrl: res.sourceUrl,
+          attribution: res.attribution,
+        });
+      })
+      .catch((err) => {
+        console.error("[arfyin] POP_BACKGROUND_PREFETCH falhou:", err instanceof Error ? err.message : err);
+        sendResponse({ type: "BACKGROUND_PREFETCH", imageBase64: null });
+      });
     return true;
   }
 
