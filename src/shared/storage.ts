@@ -77,6 +77,18 @@ interface ArfyinDbSchema extends DBSchema {
     key: string;
     value: BackgroundCacheEntry;
   };
+  // Store orfa: existiu brevemente (ARF-168, revertido) para uma fila de
+  // pre-fetch de imagens de fundo que foi abandonada. NINGUEM mais le/escreve
+  // aqui — so precisa continuar existindo no schema porque bancos que ja
+  // passaram pela versao 6 (quem testou o ARF-168 ao vivo) tem essa store no
+  // disco, e IndexedDB NUNCA aceita abrir com uma versao MENOR que a ja
+  // existente (erro fatal, quebra a extensao inteira — exatamente o que
+  // aconteceu ao reverter a versao do banco de volta pra 5 sem isto).
+  background_prefetch: {
+    key: string;
+    value: unknown;
+    indexes: { specKey: string };
+  };
 }
 
 export interface BackgroundCacheEntry {
@@ -94,7 +106,7 @@ export type ArfyinDb = IDBPDatabase<ArfyinDbSchema>;
  * rodarem (ver tests/setup.ts), então nenhum mock manual é necessário aqui.
  */
 export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
-  return openDB<ArfyinDbSchema>(name, 5, {
+  return openDB<ArfyinDbSchema>(name, 6, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         db.createObjectStore("groups", { keyPath: "id" });
@@ -113,6 +125,11 @@ export function openArfyinDb(name = "arfyin"): Promise<ArfyinDb> {
       }
       if (oldVersion < 5) {
         db.createObjectStore("background_cache", { keyPath: undefined });
+      }
+      if (oldVersion < 6) {
+        // Store orfa — ver comentario no schema acima (ArfyinDbSchema).
+        const prefetch = db.createObjectStore("background_prefetch", { keyPath: "id" });
+        prefetch.createIndex("specKey", "specKey");
       }
     },
   });

@@ -553,3 +553,17 @@ Histórico completo do que foi tentado, em ordem, cada rodada com validação ao
 Confirmado: `npm run test` volta a 98/98 (era 106 com os testes do ARF-168), `svelte-check` volta a 230 arquivos (era 234), `npm run typecheck`/`npm run build` limpos. O comportamento de fundo volta a ser exatamente o original: flash normal ao abrir aba, sem nenhum cache/fila — aceito pelo usuário como adequado antes de qualquer uma destas tentativas.
 
 **Lição registrada para o futuro** (ver K4 em `feature_ideas.md`): se o assunto for retomado algum dia, não reconstruir a arquitetura de fila — considerar algo radicalmente mais simples primeiro (ex.: só `<link rel="prefetch">` no HTML da new-tab, sem fila nem mensageria), e ser mais cético quanto a validações "passou nos testes automatizados" quando o histórico já mostrou 4 vezes que bugs só se manifestam no uso real do usuário.
+
+## 2026-11-28 (7ª rodada, HOTFIX CRÍTICO) — o revert quebrou a extensão inteira: downgrade de versão do IndexedDB
+
+Usuário reportou, após recarregar a extensão com o revert: **nada funcionava** — tela em branco, nenhuma configuração aplicava. Muito mais grave que o problema de fundo que motivou o revert.
+
+**Causa raiz**: `openArfyinDb()` (`src/shared/storage.ts`) voltou a pedir a versão **5** do schema IndexedDB (o revert desfez o bump para 6 feito pelo ARF-168, que tinha criado a tabela `background_prefetch`). Só que o banco **no disco do usuário já estava na versão 6** — ele tinha testado as 4 rodadas anteriores, cada uma abrindo e migrando o banco de verdade. IndexedDB **nunca aceita abrir um banco com uma versão menor que a já existente** — é um erro fatal e definitivo, não um aviso: `"The requested version (5) is less than the existing version (6)"` (reproduzido e confirmado com essa mensagem exata, simulando o cenário). A Promise de `openArfyinDb()` no service worker rejeitava, `dbPromise` nunca resolvia, e **toda mensagem que dependia do banco parava de responder** — exatamente "nada aparece, nada é aplicado".
+
+Isto é uma categoria de erro séria que eu deveria ter antecipado ao planejar o revert: **migrações de schema de banco de dados não são seguras para reverter via `git revert`** — o código volta, mas o estado persistido (no disco do usuário, não no git) não volta junto. Um `git revert` normal é seguro para código puro; não é para qualquer coisa que grava um número de versão em disco.
+
+**Correção**: a versão do banco foi mantida em **6** (não voltou para 5), com a store `background_prefetch` ainda sendo criada no upgrade de versão 6 — mas agora como uma store **órfã**, documentada como tal, que nenhum código lê ou escreve. Isso é seguro para todo mundo: quem nunca passou pela v6 (ou é usuário novo) ganha uma tabela vazia inofensiva; quem já passou (como o usuário) abre o banco normalmente, sem erro de downgrade. Validado reproduzindo o erro exato via IndexedDB nativo (banco criado na v6, tentativa de reabrir na v5 falha com a mensagem documentada acima; reabrir na v6 funciona).
+
+`npm run test` (98/98), `svelte-check` (230 arquivos, 0 erros), `typecheck`, `build` e `npx playwright test` (5/5) confirmados limpos.
+
+**Lição adicional para o futuro**: qualquer reversão de uma feature que incluiu uma migração de IndexedDB (ou qualquer storage persistente versionado) precisa **manter a versão do schema** mesmo revertendo o código que a usava — nunca reverter o número de versão junto. Vale um checklist mental específico para esse tipo de revert daqui pra frente.
