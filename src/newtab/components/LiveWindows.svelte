@@ -5,6 +5,7 @@
   import { liveSelectionState } from "../lib/liveSelectionState.svelte";
   import LiveWindowSection from "./LiveWindowSection.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
+  import GroupDialog from "./GroupDialog.svelte";
   import Icon from "./Icon.svelte";
 
   const LIVE_WINDOWS_PORT_NAME = "live-windows";
@@ -12,6 +13,11 @@
   let windows: LiveWindow[] = $state([]);
   let port: chrome.runtime.Port | undefined;
   let showCloseSelectedConfirm = $state(false);
+  let showCreateGroupDialog = $state(false);
+  // Capturado no clique (event.altKey), guardado ate a confirmacao do
+  // GroupDialog — mesma semantica ja usada no drag de lote pra GroupItem
+  // (Alt decide se fecha as abas originais depois de adicionar ao grupo).
+  let closeOriginalsOnCreate = $state(false);
 
   function toggleSelectionMode() {
     if (liveSelectionState.active) liveSelectionState.disable();
@@ -37,6 +43,23 @@
     }
   }
 
+  function openCreateGroupDialog(event: MouseEvent) {
+    closeOriginalsOnCreate = event.altKey;
+    showCreateGroupDialog = true;
+  }
+
+  // Captura a selecao ANTES de qualquer await — `store.addTabs` e sequencial
+  // (um ADD_TAB por aba) e `liveSelectionState` pode ser desligado por fora
+  // (Escape, outro clique) antes de terminar.
+  async function createGroupFromSelection(name: string, color: string | null, icon: string | null) {
+    const tabs = liveSelectionState.selected;
+    const group = await store.createGroup(name);
+    if (color !== null || icon !== null) await store.updateAppearance(group.id, color, icon);
+    await store.addTabs(tabs.map((t) => ({ url: t.url, title: t.title, faviconUrl: t.faviconUrl, groupId: group.id })));
+    if (closeOriginalsOnCreate) tabs.forEach((t) => chrome.tabs.remove(t.chromeTabId));
+    liveSelectionState.disable();
+  }
+
   onMount(() => {
     port = chrome.runtime.connect({ name: LIVE_WINDOWS_PORT_NAME });
     port.onMessage.addListener((message: { type: string; windows?: LiveWindow[] }) => {
@@ -58,6 +81,13 @@
     <h2>Abas abertas</h2>
     <div class="heading-actions">
       {#if liveSelectionState.active && liveSelectionState.selected.length > 0}
+        <button
+          class="select-toggle"
+          onclick={openCreateGroupDialog}
+          title="Segure Option (⌥) ao clicar para fechar as abas originais depois de criar o grupo"
+        >
+          <Icon name="add" size={12} /> Criar grupo ({liveSelectionState.selected.length})
+        </button>
         <button class="select-toggle danger" onclick={requestCloseSelected}>
           <Icon name="x" size={12} /> Fechar selecionadas ({liveSelectionState.selected.length})
         </button>
@@ -82,6 +112,14 @@
     confirmLabel="Fechar abas"
     onConfirm={closeSelected}
     onClose={() => (showCloseSelectedConfirm = false)}
+  />
+{/if}
+
+{#if showCreateGroupDialog}
+  <GroupDialog
+    initialTabCount={liveSelectionState.selected.length}
+    onSave={createGroupFromSelection}
+    onClose={() => (showCreateGroupDialog = false)}
   />
 {/if}
 

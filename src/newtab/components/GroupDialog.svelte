@@ -16,8 +16,10 @@
     initial?: { name: string; color: string | null; icon: string | null } | null;
     onSave: (name: string, color: string | null, icon: string | null) => void;
     onClose: () => void;
+    /** Abas que já entrarão no grupo ao salvar (ex.: criado a partir de uma seleção de abas vivas) — só afeta o contador da pré-visualização. */
+    initialTabCount?: number;
   }
-  let { initial = null, onSave, onClose }: Props = $props();
+  let { initial = null, onSave, onClose, initialTabCount = 0 }: Props = $props();
 
   let name = $state(initial?.name ?? "");
   let color = $state(initial?.color ?? null);
@@ -100,7 +102,7 @@
   </div>
 
   <div class="field">
-    <span class="field-label">Pré-visualização (grupo colapsado, vazio)</span>
+    <span class="field-label">Pré-visualização (grupo colapsado{initialTabCount === 0 ? ", vazio" : ""})</span>
     <!--
       Mesma estrutura/CSS de GroupItem.svelte (.group/.group-header), pra ser
       fiel de verdade: cor como borda na borda esquerda do CONTAINER inteiro,
@@ -118,7 +120,7 @@
         <span class="collapse-toggle"><Icon name="chevron-down" size={14} /></span>
         {#if icon}<span class="icon"><Icon name={icon} size={15} /></span>{/if}
         <span class="name">{name.trim() || "Nome do grupo"}</span>
-        <span class="count">0</span>
+        <span class="count">{initialTabCount}</span>
         <span class="spacer"></span>
         <span class="icon-button"><Icon name="external-link" size={15} /></span>
         <span class="icon-button"><Icon name="pencil" size={15} /></span>

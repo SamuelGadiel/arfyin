@@ -231,6 +231,33 @@ Reportado pelo usuário em uso real: apertar "1" (sem modificador) digitou "1" n
 
 ---
 
+---
+
+## Tema K — Brainstorm de melhorias (2026-11-27)
+
+Claude fez um brainstorm amplo de gaps/melhorias olhando feature_ideas.md, kanban.md, ADRs e a pesquisa competitiva, testando o app ao vivo com volume realista (35 abas, 6 grupos). O usuário validou alguns pontos, descartou outros explicitamente por não serem seu caso de uso real — registrado aqui para não propor de novo sem motivo novo.
+
+### K1. Indicador de "tempo sem uso" por grupo — [IDEIA VALIDADA, não priorizada ainda]
+Mostrar no card do grupo há quanto tempo faz que nenhuma aba daquele grupo foi *aberta de verdade* no navegador (não contar expandir/colapsar o card como "uso"). Endereça a fricção de revisão que a própria pesquisa competitiva (`docs/research/chrome-context.md`) identificou como causa de abandono do Session Buddy/Tab Group: nada hoje diferencia um grupo criado ontem de um esquecido há 8 meses. Falta decidir: onde guardar o timestamp de "última abertura real" (precisa de um evento novo — hoje não existe rastreamento de "abri esta aba salva"), formato de exibição ("há 3 meses" vs data exata), e se afeta ordenação. **Não implementar sem o usuário pedir explicitamente** — é só uma ideia capturada.
+
+### K2. Pontos considerados e EXPLICITAMENTE descartados pelo usuário (não repropor sem contexto novo)
+- **Busca/filtro de abas ou grupos**: usuário nunca teve esse caso de uso na prática, mesmo com 60+ abas reais. Não é prioridade.
+- **Densidade visual da lista de abas vivas** (parede de texto com volume alto): usuário gosta exatamente disso — prefere ver a lista completa a um resumo/agrupamento automático, usa a lista como forma de navegar e focar abas em vez de procurar na barra de abas do Chrome. Não "resolver" isso.
+- **Detecção de abas duplicadas**: usuário não se incomoda em ter várias abas iguais abertas (ex. 3 Gmails) — não é um problema pra ele.
+- **Grupos vazios ocupando espaço**: não incomoda.
+- **Ações em lote tipo "fechar as outras"/"fechar à direita"**: não é o que o usuário tinha em mente ao mencionar "ações em lote" — ver K3.
+
+### K3. Criar grupo diretamente a partir de uma seleção de abas vivas — [FEITO, ver ARF-170 no kanban]
+Hoje o fluxo exige criar o grupo primeiro, depois mover abas pra ele. Usuário quer: no modo "Selecionar" (abas vivas), um botão "Criar grupo" ao lado de "Cancelar seleção" — abre o `GroupDialog` já existente, e ao confirmar cria o grupo já com as abas selecionadas dentro. Tecla modificadora (Alt/Option, mesmo padrão já usado no app) no clique do botão decide se fecha as abas originais do Chrome ou mantém abertas. Pré-visualização do grupo no dialog: sem ícones/abas reais (não quer isso), só o contador ao lado do nome (hoje sempre "0") virando dinâmico = quantidade de abas selecionadas. Ver card correspondente no `kanban.md`.
+
+### K4. Performance — flash de fundo preto ao abrir nova aba — [FEITO]
+Causa raiz confirmada: o fundo real depende de 2 round-trips sequenciais (IPC+IndexedDB para config, depois outro para o cache de candidatos reddit/unsplash) mais o fetch de rede da imagem — nada ficava disponível de forma síncrona no primeiro paint. Corrigido com `src/newtab/lib/backgroundQuickCache.ts`: a última cor/imagem efetivamente exibida é gravada em `localStorage` (síncrono) e lida no mount do `BackgroundLayer`, antes de qualquer round-trip, servindo de palpite imediato até o valor real chegar (que sempre o substitui). Validado: com a config real atrasada propositalmente, o fundo aparece em ~244ms via cache em vez de esperar o round-trip completo.
+
+### K5. Consumo de memória da extensão — [ANALISADO, decisão pendente do usuário]
+Investigação profunda feita via subagente Opus. Achado principal: a maior parte do consumo (pico de ~350MB, ~99MB em repouso) vem da imagem de papel de parede do Reddit/Unsplash sendo usada na resolução ORIGINAL (não a da tela) — não de vazamento de memória JS (heap da página fica entre 3,5-8MB). Recomendações de baixo risco já identificadas (pré-carregar sem seguro bytes na aba via `<link rel="prefetch">`, filtrar eventos irrelevantes no broadcast de abas vivas, lazy-load do `supabase-js` só quando o painel de configurações abre, criar formatadores de data do relógio uma vez). A correção de maior impacto (redimensionar a imagem para o tamanho da tela antes de aplicar) precisa de uma decisão do usuário, pois ele já pediu explicitamente "sem limitar resolução" no passado — avaliar se topa esse trade-off agora que o custo de memória ficou claro. Nenhuma correção aplicada ainda.
+
+---
+
 ## Decisões/âmbito ainda aberto (não são perguntas ao usuário — são registradas para quando formos desenhar o SDD correspondente)
 
 - Escolha concreta do backend de sync (Supabase vs Firebase vs Drive vs Git) — arquitetura decide, ver `docs/architecture/decisions.md`.
