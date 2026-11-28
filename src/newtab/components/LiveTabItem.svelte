@@ -304,18 +304,35 @@
     padding: 4px 6px;
     border-radius: 6px;
   }
+  .live-tab {
+    position: relative;
+  }
   .live-tab:hover,
   .live-tab.selected {
     background: rgba(255, 255, 255, 0.08);
   }
-  /* Linha de insercao via box-shadow inset — nao desloca layout (sem
-     margin/altura extra), ao contrario da 1a tentativa (LiveTabDropGap),
-     que inflava o espacamento entre abas mesmo em repouso. */
-  .live-tab.drop-before {
-    box-shadow: inset 0 2px 0 rgba(234, 234, 234, 0.9);
+  /* Linha de insercao flutuando no MEIO do espaco de 2px entre duas abas
+     (via position:absolute, fora da caixa do item) — nao dentro do proprio
+     item (1a tentativa, usava box-shadow inset: ficava colada na borda
+     superior/inferior da aba, relatado como "nao ficou legal"). Nao desloca
+     layout (nao usa margin/altura extra), mesmo visual do antigo
+     LiveTabDropGap/GroupDropGap (linha de 3px, mesma cor). */
+  .live-tab.drop-before::before,
+  .live-tab.drop-after::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(234, 234, 234, 0.9);
+    z-index: 2;
   }
-  .live-tab.drop-after {
-    box-shadow: inset 0 -2px 0 rgba(234, 234, 234, 0.9);
+  .live-tab.drop-before::before {
+    top: -2px;
+  }
+  .live-tab.drop-after::after {
+    bottom: -2px;
   }
   .tab-link {
     display: flex;
