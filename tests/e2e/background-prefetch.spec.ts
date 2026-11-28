@@ -183,3 +183,81 @@ test("mensagem POP_BACKGROUND_PREFETCH transporta a imagem via base64 (Blob/Arra
 
   await context.close();
 });
+
+test("se POP_BACKGROUND_PREFETCH rejeitar (ex.: service worker reiniciando), o fallback assume e a tela NAO fica preta", async () => {
+  // Bug real relatado ao vivo apos a 1a versao da fila: `loadViaPrefetchQueue`
+  // nao tinha try/catch — se `chrome.runtime.sendMessage` REJEITASSE a nivel
+  // de transporte (nao so respondesse com imageBase64:null), a excecao
+  // interrompia a funcao antes da linha de fallback (`loadCandidates`)
+  // rodar, deixando a tela preta pra sempre. Este teste simula exatamente
+  // essa rejeicao e confirma que uma imagem aparece mesmo assim.
+  const context = await launchWithExtension();
+
+  await context.route("https://www.reddit.com/**", (route: Route) => {
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          children: [
+            {
+              data: {
+                url: "https://i.redd.it/fallback.jpg",
+                post_hint: "image",
+                over_18: false,
+                preview: { images: [{ source: { width: 1000, height: 750 } }] },
+              },
+            },
+          ],
+        },
+      }),
+    });
+  });
+  await context.route("https://i.redd.it/**", (route: Route) => {
+    route.fulfill({ status: 200, contentType: "image/jpeg", body: Buffer.alloc(5000) });
+  });
+
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent("serviceworker");
+  const extensionId = worker.url().split("/")[2]!;
+
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    const orig = chrome.runtime.sendMessage.bind(chrome.runtime);
+    chrome.runtime.sendMessage = ((...args: Parameters<typeof chrome.runtime.sendMessage>) => {
+      const msg = args[0] as { type?: string };
+      if (msg?.type === "POP_BACKGROUND_PREFETCH") return Promise.reject(new Error("Simulated transport failure"));
+      return orig(...args);
+    }) as typeof chrome.runtime.sendMessage;
+  });
+
+  await page.goto(`chrome-extension://${extensionId}/src/newtab/index.html`);
+  await page.evaluate(async () => {
+    const res = await chrome.runtime.sendMessage({ type: "GET_CONFIG" });
+    await chrome.runtime.sendMessage({
+      type: "UPDATE_CONFIG",
+      patch: {
+        background: {
+          ...res.config.background,
+          source: "reddit",
+          subreddits: ["wallpapers"],
+          pausedKey: null,
+          rotationMode: "per-tab",
+        },
+      },
+    });
+  });
+  // A config foi aplicada via mensagem direta — precisa recarregar pra
+  // propagar ao estado reativo da pagina (mesmo padrao dos outros testes
+  // deste arquivo).
+  await page.reload();
+
+  await page.waitForFunction(
+    () => getComputedStyle(document.querySelector(".background-layer")!).backgroundImage !== "none",
+    { timeout: 6000 },
+  );
+  const bg = await page.evaluate(() => getComputedStyle(document.querySelector(".background-layer")!).backgroundImage);
+  expect(bg).toContain("i.redd.it/fallback.jpg");
+
+  await context.close();
+});

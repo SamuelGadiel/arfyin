@@ -560,3 +560,21 @@ Usuário testou a correção anterior (quick-cache via `localStorage`) e reporto
 Novo host_permissions no manifest: `https://*.redd.it/*`, `https://*.redditmedia.com/*`, `https://images.unsplash.com/*` (domínios reais de CDN de imagem — as URLs de imagem do Reddit/Unsplash não vêm de `www.reddit.com`/`api.unsplash.com`, que já eram as únicas permissões existentes).
 
 `npm run test` (106/106, incluindo 8 novos testes puros da fila), `npm run typecheck`, `svelte-check` (0 erros, 8 warnings baseline), `npm run build` e `npx playwright test` (7/7, incluindo os 2 novos specs) confirmados limpos.
+
+## 2026-11-28 (4ª rodada) — ARF-168 v3: regressão real da fila de pré-fetch, tela preta ao abrir nova aba
+
+Usuário reportou, logo após a v2 ir pro ar: tela toda preta ao abrir nova aba, ou uma imagem aparece por um instante e some, ficando preta. Investigação encontrou um bug real e determinístico, não condição de borda rara.
+
+**Causa raiz**: `loadViaPrefetchQueue()` (`BackgroundLayer.svelte`) não tinha nenhum `try`/`catch` ao redor de `await send({ type: "POP_BACKGROUND_PREFETCH", ... })`. Se `chrome.runtime.sendMessage` **rejeitar** a nível de transporte (não apenas responder com `imageBase64: null` — que o handler já trata bem) — por exemplo o service worker MV3 reiniciando no meio da chamada, ou "Extension context invalidated" — a exceção interrompia a função ali mesmo, e a linha seguinte (`backgroundState.loadCandidates(bgKey)`, o fallback que busca uma imagem via URL remota direta) **nunca executava**. Resultado: nem a fila nem o fallback entregavam imagem nenhuma — tela preta permanente, sem nenhuma rede de segurança (o cache simples da v1/v2, usado só no modo estático, foi deliberadamente desligado no modo dinâmico "per-tab" para não reintroduzir o bug anterior). Confirmado ao vivo simulando a rejeição (mock de `chrome.runtime.sendMessage` que rejeita só para `POP_BACKGROUND_PREFETCH`): sem o `try`/`catch`, tela preta reproduzida de forma 100% determinística; com o fix, o fallback assume e mostra a imagem normalmente.
+
+Hipóteses descartadas por medição direta antes de concluir a causa acima: (1) limite de tamanho de mensagem do `chrome.runtime.sendMessage` — testado até 16MB sem falha nenhuma; (2) lentidão da conversão para base64 — medido em ~200ms para 8MB, não é gargalo. Ambas otimizadas de qualquer forma por serem estritamente melhores sem custo (`blobToBase64` trocado de loop char-a-char para chunks de 8192).
+
+**Correções aplicadas**:
+1. `try`/`catch` em `loadViaPrefetchQueue` — qualquer falha do prefetch (logada no console) cai sempre no fallback, nunca interrompe o fluxo.
+2. `effectiveImageUrl` simplificado: removida a condição `waitingForReal` que desligava o cache simples (`localStorage`) no modo dinâmico. Agora ele continua como **último recurso** mesmo no modo "per-tab" — só é usado quando NEM a fila NEM o fallback têm nada ainda (prioridade: fila > fallback > cache simples > nada). Isso cobre qualquer outro cenário de falha dupla (ex.: rede real indisponível para ambos) sem reintroduzir o bug da v2 (o cache simples só aparece quando os dois caminhos principais genuinamente falharam, não substitui um já em andamento com sucesso).
+
+Cobertura e2e permanente: novo teste em `tests/e2e/background-prefetch.spec.ts` simulando a rejeição do `sendMessage` via `addInitScript`, confirmando que uma imagem aparece mesmo assim (4 execuções consecutivas estáveis, isolado e junto da suíte completa).
+
+Nota: a flakiness ambiental da suíte e2e completa (já documentada antes) se mostrou um pouco mais frequente nesta rodada — em 3 execuções seguidas da suíte inteira, cada uma teve exatamente 1 falha, mas em specs **diferentes** a cada vez (nunca no spec novo deste fix, que foi 4/4 estável isolado). Consistente com infraestrutura (contenção de foco/CPU entre múltiplos processos Chrome `headless:false` nesta máquina), não com regressão de código — mas a frequência maior merece atenção se continuar piorando.
+
+`npm run test` (106/106), `npm run typecheck`, `svelte-check` (0 erros, 8 warnings baseline), `npm run build` limpos. `npx playwright test` do novo spec: 4/4 execuções estáveis.

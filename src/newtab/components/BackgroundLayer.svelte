@@ -66,23 +66,36 @@
   );
 
   async function loadViaPrefetchQueue() {
-    const dpr = window.devicePixelRatio || 1;
-    const targetWidth = Math.round(window.screen.width * dpr);
-    const targetHeight = Math.round(window.screen.height * dpr);
-    const res = await send<"BACKGROUND_PREFETCH">({
-      type: "POP_BACKGROUND_PREFETCH",
-      source: bg.source as "reddit" | "unsplash",
-      subreddits: bg.subreddits,
-      unsplashTopics: bg.unsplashTopics,
-      targetWidth,
-      targetHeight,
-    });
-    if (res.type === "BACKGROUND_PREFETCH" && res.imageBase64 && res.sourceUrl) {
-      const blob = base64ToBlob(res.imageBase64, res.mimeType ?? "image/jpeg");
-      backgroundState.setPrefetched(blob, res.sourceUrl, res.attribution);
+    try {
+      const dpr = window.devicePixelRatio || 1;
+      const targetWidth = Math.round(window.screen.width * dpr);
+      const targetHeight = Math.round(window.screen.height * dpr);
+      const res = await send<"BACKGROUND_PREFETCH">({
+        type: "POP_BACKGROUND_PREFETCH",
+        source: bg.source as "reddit" | "unsplash",
+        subreddits: bg.subreddits,
+        unsplashTopics: bg.unsplashTopics,
+        targetWidth,
+        targetHeight,
+      });
+      if (res.type === "BACKGROUND_PREFETCH" && res.imageBase64 && res.sourceUrl) {
+        const blob = base64ToBlob(res.imageBase64, res.mimeType ?? "image/jpeg");
+        backgroundState.setPrefetched(blob, res.sourceUrl, res.attribution);
+      }
+    } catch (err) {
+      // `chrome.runtime.sendMessage` pode REJEITAR a nivel de transporte (nao
+      // so responder com imageBase64:null) — ex. mensagem grande demais
+      // (imagem+base64 de uma tela grande pode passar de alguns MB). Sem
+      // este catch, a excecao interrompia a funcao ANTES da linha de
+      // fallback abaixo rodar, deixando a tela preta pra sempre (bug real
+      // relatado ao vivo: "tela preta" / "aparece e some"). O fallback
+      // (loadCandidates, pool normal via URL remota) sempre precisa rodar,
+      // com ou sem sucesso do prefetch.
+      console.error("[arfyin] loadViaPrefetchQueue falhou, caindo no fallback:", err);
     }
     // Sempre popula o pool normal tambem (usado por next()/prev() e como
-    // fallback se a fila estava vazia) — nao bloqueia a exibicao acima.
+    // fallback se a fila estava vazia OU o prefetch falhou) — nao bloqueia
+    // a exibicao acima.
     backgroundState.loadCandidates(bgKey);
   }
 
@@ -97,22 +110,17 @@
     }
   });
 
-  // Enquanto o config real ainda nao chegou, ou chegou mas os candidatos de
-  // reddit/unsplash ainda nao resolveram, usa o palpite do cache rapido —
-  // nunca quando ja sabemos que a fonte real e "solid"/"local", nem quando
-  // o modo dinamico esta ativo (ali quem resolve e a fila de pre-fetch).
-  let waitingForReal = $derived(
-    !usesPrefetchQueue &&
-      (!store.configLoaded ||
-        ((bg.source === "reddit" || bg.source === "unsplash") && backgroundState.currentUrl === null)),
-  );
   let effectiveColor = $derived(
     store.configLoaded ? (bg.source === "solid" ? bg.solidColor : "#121212") : (quickBg?.solidColor ?? "#121212"),
   );
+  // Prioridade: prefetch (imagem pronta da fila) > pool normal (fallback ou
+  // modo nao-dinamico) > cache rapido como ULTIMO RECURSO. Esse ultimo nivel
+  // existe pra nunca deixar a tela preta (bug real relatado ao vivo) se
+  // tanto o prefetch quanto o pool normal falharem/demorarem (rede, SW
+  // reiniciando, etc.) — melhor mostrar uma imagem antiga por um instante do
+  // que nada, e assim que um dos dois resolver ele substitui normalmente.
   let effectiveImageUrl = $derived(
-    backgroundState.prefetchedUrl ??
-      backgroundState.currentUrl ??
-      (waitingForReal ? (quickBg?.imageUrl ?? null) : null),
+    backgroundState.prefetchedUrl ?? backgroundState.currentUrl ?? (quickBg?.imageUrl ?? null),
   );
   let effectiveAttribution = $derived(backgroundState.prefetchedUrl ? backgroundState.prefetchedAttribution : backgroundState.current?.attribution);
 

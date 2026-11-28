@@ -171,9 +171,15 @@ export async function downloadAndResizeImage(
 export async function blobToBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
-  return btoa(binary);
+  // Em chunks (em vez de += char a char) — mais rapido para imagens de
+  // varios MB, e sem risco de estourar o limite de argumentos do spread
+  // (8192 e um tamanho seguro para qualquer engine).
+  const chunkSize = 8192;
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + chunkSize)));
+  }
+  return btoa(chunks.join(""));
 }
 
 export function base64ToBlob(base64: string, mimeType: string): Blob {
